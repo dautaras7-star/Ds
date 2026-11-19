@@ -5,171 +5,189 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: file:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'">
 <title>Viral Studio</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Layout: fixed left rail (sections) + wide content column; vertical 9:16 video tiles are the main unit. Single dark look, deliberate. */
+/* Layout: desktop shell = title bar + left rail of pipeline steps + scrolling content. 9:16 tiles are the main unit. Single dark look. */
 :root{
   --bg:#0b0b10; --panel:#14141c; --panel2:#1c1c27; --line:#2a2a38;
   --fg:#f2f2f7; --muted:#9a9ab0; --dim:#6b6b80;
   --accent:#ff2d6f; --accent2:#25e2f0;
   --ok:#3ddc84; --warn:#ffb020; --bad:#ff5a5a;
-  --yt:#ff3b30; --tt:#25e2f0; --ig:#d94bd9; --fb:#4f8cff;
   --display:"Space Grotesk",system-ui,sans-serif;
   --body:"Inter",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,monospace;
-  --r:12px;
   color-scheme:dark;
 }
+*{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.5}
-*{box-sizing:border-box}
-button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
-button:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+h1,h2,h3,h4{font-family:var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+
 .titlebar{height:40px;display:flex;align-items:center;gap:10px;padding:0 150px 0 16px;border-bottom:1px solid var(--line);-webkit-app-region:drag;user-select:none;font-size:12px;color:var(--muted)}
-.titlebar .brand{padding:0;font-size:14px}
-.titlebar .tb-sp{flex:1}
-.titlebar .dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
-.app{display:grid;grid-template-columns:220px 1fr;height:calc(100% - 41px)}
-.rail{height:100%;overflow:auto;border-right:1px solid var(--line);padding:24px 14px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
-.brand{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:-.02em;padding:0 10px 18px;display:flex;align-items:center;gap:8px}
-.brand i{width:12px;height:22px;border-radius:3px;background:linear-gradient(180deg,var(--accent2),var(--accent));display:inline-block}
-.nav{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;color:var(--muted);font-weight:500;text-align:left;width:100%}
+.brand{font-family:var(--display);font-weight:700;font-size:14px;color:var(--fg);display:flex;align-items:center;gap:8px}
+.brand i{width:10px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--accent2),var(--accent))}
+.sp{flex:1}
+.app{display:grid;grid-template-columns:230px 1fr;height:calc(100% - 41px)}
+.rail{height:100%;overflow:auto;border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.rail .grp{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:14px 12px 6px}
+.nav{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;color:var(--muted);font-weight:500;width:100%;text-align:left}
 .nav:hover{background:var(--panel);color:var(--fg)}
 .nav[aria-current="page"]{background:var(--panel2);color:var(--fg)}
+.nav .n{font-family:var(--mono);font-size:10px;color:var(--dim);width:14px}
+.nav .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;padding:0 7px;border-radius:99px;background:var(--panel2);color:var(--muted)}
 .nav[aria-current="page"] .cnt{background:var(--accent);color:#fff}
-.cnt{font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:99px;background:var(--panel2);color:var(--muted)}
+.nav .soon{margin-left:auto;font-size:10px;color:var(--dim)}
 .rail-foot{margin-top:auto;padding:12px;border-radius:10px;background:var(--panel);font-size:12px;color:var(--muted)}
 .rail-foot b{display:block;font-family:var(--mono);font-size:18px;color:var(--fg);font-weight:500}
-main{overflow:auto;height:100%;padding-block:28px 60px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));min-width:0;}
+main{overflow:auto;height:100%;padding:26px 30px 60px;min-width:0}
 main>*{max-width:1400px}
-.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
-h1{font-family:var(--display);font-size:30px;letter-spacing:-.02em;margin:0;text-wrap:balance}
-.sub{color:var(--muted);margin:4px 0 0}
-.example{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);padding:3px 8px;border-radius:6px}
-.stats{display:flex;gap:10px;flex-wrap:wrap}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:110px}
-.stat small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-.stat div{font-family:var(--mono);font-size:18px}
 
-/* concept block */
-.concept{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:18px;margin-bottom:18px}
-.c-top{display:grid;grid-template-columns:88px 1fr auto;gap:16px;align-items:start}
-.c-src{width:88px;aspect-ratio:9/16;border-radius:8px;background:var(--panel2) center/cover;position:relative;overflow:hidden}
-.c-src span{position:absolute;left:4px;bottom:4px;font-family:var(--mono);font-size:10px;background:rgba(0,0,0,.7);padding:1px 5px;border-radius:4px}
-.c-meta{min-width:0}
-.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);font-weight:600}
-.c-meta h3{font-family:var(--display);font-size:19px;margin:2px 0 6px}
-.c-meta p{margin:0;color:var(--muted);max-width:70ch}
-.hook{margin-top:8px!important;color:var(--fg)!important}
-.hook b{color:var(--accent)}
-.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.tag{font-size:12px;padding:2px 8px;border-radius:6px;background:var(--panel2);color:var(--muted)}
-.vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:16px}
-.vid{display:flex;flex-direction:column;gap:8px;min-width:0}
-.player{aspect-ratio:9/16;max-width:100%;border-radius:10px;position:relative;overflow:hidden;background:var(--panel2) center/cover;border:1px solid var(--line)}
-.player::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,.65))}
-.play{position:absolute;inset:0;margin:auto;width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:1}
-.play::before{content:"";border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
-.p-info{position:absolute;left:10px;right:10px;bottom:8px;z-index:1;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px}
-.status{position:absolute;top:8px;left:8px;z-index:1;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:rgba(0,0,0,.6)}
-.status.gen{color:var(--warn)} .status.fix{color:var(--accent2)} .status.ok{color:var(--ok)}
-.actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
-.btn{padding:8px 10px;border-radius:8px;font-weight:600;font-size:13px;background:var(--panel2);border:1px solid var(--line);text-align:center}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.head h1{font-size:28px}
+.sub{color:var(--muted);margin:4px 0 0;max-width:75ch}
+.example{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);padding:3px 8px;border-radius:6px}
+.btn{padding:8px 12px;border-radius:8px;font-weight:600;font-size:13px;background:var(--panel2);border:1px solid var(--line);text-align:center;white-space:nowrap}
 .btn:hover{border-color:var(--dim)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.cy{color:var(--accent2)}
-.btn.del{color:var(--bad)}
-.fixbox{display:flex;flex-direction:column;gap:6px}
-textarea{width:100%;min-height:72px;resize:vertical;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:13px}
-.row{display:flex;gap:6px}
-.row .btn{flex:1}
+.btn.bad{color:var(--bad)}
+.btn.ok{color:var(--ok)}
+.btn.big{padding:12px 20px;font-size:15px}
+.btn[disabled]{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.fill>.btn{flex:1}
 .note{font-size:12px;color:var(--muted)}
-.confirm{font-size:12px;color:var(--bad);text-align:center}
-
-/* review */
-.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
-.rcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
-.rcard h4{margin:0;font-family:var(--display);font-size:15px}
-.rcard .note{margin-top:-6px}
-.flow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:20px;color:var(--muted);font-size:13px}
-.flow b{color:var(--fg);font-weight:600}
-.flow .arr{color:var(--dim)}
-
-/* schedule */
-.weekbar{display:flex;align-items:center;gap:8px}
-.cal-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
-.cal{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));min-width:1050px}
-.day{border-right:1px solid var(--line);min-height:460px;display:flex;flex-direction:column}
-.day:last-child{border-right:0}
-.day-h{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
-.day-h b{font-family:var(--display)}
-.day-h span{font-family:var(--mono);font-size:12px;color:var(--muted)}
-.day.today .day-h{background:color-mix(in srgb,var(--accent) 14%,transparent)}
-.day-b{padding:8px;display:flex;flex-direction:column;gap:8px}
-.post{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:left;display:flex;gap:8px;width:100%}
-.post:hover{border-color:var(--dim)}
-.post .th{width:34px;aspect-ratio:9/16;border-radius:5px;background:var(--bg) center/cover;flex:none}
-.post .pi{min-width:0;display:flex;flex-direction:column;gap:4px}
-.post time{font-family:var(--mono);font-size:12px}
-.post .cap{font-size:12px;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.plats{display:flex;gap:3px;flex-wrap:wrap}
-.pl{font-family:var(--mono);font-size:10px;font-weight:500;padding:0 5px;border-radius:4px;border:1px solid currentColor}
-.pl.yt{color:var(--yt)} .pl.tt{color:var(--tt)} .pl.ig{color:var(--ig)} .pl.fb{color:var(--fb)}
-.post.posted{opacity:.6}
-.post.failed{border-color:var(--bad)}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:12px}
-.detail{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;grid-template-columns:120px 1fr;gap:16px}
-.detail .player{width:120px}
-.detail h4{margin:0 0 4px;font-family:var(--display)}
-.detail p{margin:6px 0;max-width:70ch}
-
-/* viral */
-.vlist{display:flex;flex-direction:column;gap:14px}
-.vrow{display:grid;grid-template-columns:120px 1fr 230px;gap:18px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;align-items:start}
-.vrow .player{width:120px}
-.vrow h3{font-family:var(--display);font-size:17px;margin:2px 0 4px}
-.why{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin-top:10px;font-size:13px}
-.why dt{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
-.why dd{margin:0}
-.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
-.num{background:var(--panel2);border-radius:8px;padding:6px 8px}
-.num small{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.num b{font-family:var(--mono);font-weight:500;font-size:15px}
-.side{display:flex;flex-direction:column;gap:8px}
-.src{font-size:12px;color:var(--muted)}
-.filters{display:flex;gap:6px;flex-wrap:wrap}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);font-weight:600}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
 .chip{padding:5px 12px;border-radius:99px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--muted)}
-.chip[aria-pressed="true"]{color:var(--fg);border-color:var(--accent2)}
-.toast{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:20;transition:opacity .2s}
+.chip[aria-pressed="true"]{color:var(--fg);border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 10%,var(--panel))}
+.pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--panel2);color:var(--muted)}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.cy{color:var(--accent2)} .pill.pk{color:var(--accent)}
+textarea,input[type=text],select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
+textarea{min-height:70px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 .empty{padding:40px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
 
-@media (max-width:820px){
-  .app{grid-template-columns:1fr}
-  .rail{position:sticky;top:env(safe-area-inset-top,0px);height:auto;flex-direction:row;overflow-x:auto;padding:10px 16px;border-right:0;border-bottom:1px solid var(--line);z-index:5}
-  .brand,.rail-foot{display:none}
-  .nav{width:auto;gap:8px;white-space:nowrap}
-  main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-  .c-top{grid-template-columns:70px 1fr}
-  .c-top>.btn{grid-column:1/-1}
-  .c-src{width:70px}
-  .vrow{grid-template-columns:90px 1fr}
-  .vrow .player{width:90px}
-  .vrow .side{grid-column:1/-1}
-  .detail{grid-template-columns:1fr}
-}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.player{aspect-ratio:9/16;max-width:100%;border-radius:10px;position:relative;overflow:hidden;background:var(--panel2) center/cover;border:1px solid var(--line)}
+.player::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,.65))}
+.play{position:absolute;inset:0;margin:auto;width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:1}
+.play::before{content:"";border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px}
+.p-info{position:absolute;left:8px;right:8px;bottom:6px;z-index:1;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px}
+.status{position:absolute;top:8px;left:8px;z-index:1;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:rgba(0,0,0,.65)}
+.status.gen{color:var(--warn)} .status.fix{color:var(--accent2)} .status.ok{color:var(--ok)}
+.status.r{left:auto;right:8px}
+
+/* products (viral finds) */
+.scrollbar{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px}
+.scrolling{display:flex;align-items:center;gap:10px;color:var(--accent2);font-weight:600}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--accent2);border-top-color:transparent;animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.vrow{display:grid;grid-template-columns:110px 1fr 220px;gap:18px;align-items:start;margin-bottom:12px}
+.vrow .player{width:110px}
+.vrow h3{font-size:17px;margin:2px 0 4px}
+.why{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin-top:8px;font-size:13px}
+.why dt{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
+.why dd{margin:0}
+.nums{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px}
+.num{background:var(--panel2);border-radius:8px;padding:6px 8px}
+.num small{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.num b{font-family:var(--mono);font-weight:500;font-size:14px}
+.num.hl b{color:var(--accent)}
+
+/* my products */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.pcard{text-align:left;display:flex;flex-direction:column;gap:12px}
+.pcard:hover{border-color:var(--dim)}
+.plogo{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:22px;color:#fff;flex:none}
+.steps{display:flex;gap:4px}
+.steps span{flex:1;height:4px;border-radius:2px;background:var(--panel2)}
+.steps span.on{background:var(--accent2)}
+.back{color:var(--muted);font-size:13px;margin-bottom:12px;display:inline-block}
+.back:hover{color:var(--fg)}
+.detail{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+.step{margin-bottom:14px}
+.step-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.step-h .k{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:12px;background:var(--panel2);color:var(--muted)}
+.step-h .k.done{background:var(--ok);color:#000}
+.step-h h3{font-size:16px}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.kit{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.asset{display:flex;flex-direction:column;gap:6px}
+.art{border-radius:10px;border:1px solid var(--line);position:relative;overflow:hidden;display:grid;place-items:center}
+.art.sq{aspect-ratio:1}
+.art.wide{aspect-ratio:820/312}
+.art .mono{font-family:var(--display);font-weight:700;color:#fff}
+.collage{display:grid;grid-template-columns:1fr 1fr;gap:3px;background:#fff;padding:3px;width:100%;height:100%}
+.collage div{background:#f1f1f4;display:grid;place-items:center;color:#9a9ab0;font-size:10px}
+.box3d{width:58%;height:58%;border-radius:6px;display:grid;place-items:center;color:#fff;font-family:var(--display);font-weight:700;font-size:13px;box-shadow:10px 10px 0 rgba(0,0,0,.25)}
+.wide-asset{grid-column:1/-1}
+.side{position:sticky;top:0;display:flex;flex-direction:column;gap:14px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+
+/* concepts */
+.cstep{margin-bottom:20px}
+.cstep h2{font-size:17px;margin-bottom:10px;display:flex;gap:10px;align-items:center}
+.cstep h2 .k{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.lcard{display:grid;grid-template-columns:62px 1fr;gap:12px;text-align:left;padding:12px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.lcard[aria-pressed="true"]{border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 8%,var(--panel))}
+.lcard .player{width:62px;border-radius:7px}
+.lcard h4{font-size:14px;margin-bottom:2px}
+.lcard p{margin:0;font-size:12px;color:var(--muted)}
+.lcard .fits{margin-top:6px;font-size:11px;color:var(--dim)}
+.combos{display:flex;flex-direction:column;gap:8px}
+.combo{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--panel2)}
+.combo b{font-family:var(--display)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{padding:5px 10px;font-size:12px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent2);color:#000;font-weight:600}
+.genbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+
+/* generations / finals */
+.ggroup{margin-bottom:22px}
+.ggroup-h{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.ggroup-h .plogo{width:34px;height:34px;border-radius:9px;font-size:14px}
+.vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.vid{display:flex;flex-direction:column;gap:8px;min-width:0}
+.vid .lab{font-size:12px;line-height:1.35}
+.vid .lab b{display:block;font-family:var(--display);font-size:13px}
+.acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.confirm{font-size:12px;color:var(--bad);text-align:center}
+
+/* library */
+.tabs{display:flex;gap:6px;margin-bottom:16px}
+.addform{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.addform .full{grid-column:1/-1}
+
+.soonbox{max-width:620px}
+.soonbox ul{color:var(--muted);padding-left:18px}
+
+.toast{position:fixed;right:20px;bottom:20px;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;z-index:20}
+@media (max-width:1150px){.detail{grid-template-columns:1fr}.side{position:static}.vrow{grid-template-columns:90px 1fr}.vrow .player{width:90px}.vrow .act{grid-column:1/-1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<header class="titlebar"><div class="brand"><i></i>Viral Studio</div><span class="tb-sp"></span><span class="dot"></span><span>Prototype · example data</span></header>
+<header class="titlebar"><div class="brand"><i></i>Viral Studio</div><span class="sp"></span><span>Prototype · example data</span></header>
 <div class="app">
   <nav class="rail" aria-label="Sections">
-    <button class="nav" data-view="today">Today <span class="cnt" id="c-today"></span></button>
-    <button class="nav" data-view="review">Review <span class="cnt" id="c-review"></span></button>
-    <button class="nav" data-view="schedule">Schedule posts <span class="cnt" id="c-schedule"></span></button>
-    <button class="nav" data-view="viral">Viral <span class="cnt" id="c-viral"></span></button>
-    <div class="rail-foot">Higgsfield credits today<b id="credits">0</b>Budget 600 / day<br><button class="btn" id="reset" style="margin-top:10px;width:100%">Reset example data</button></div>
+    <div class="grp">Find</div>
+    <button class="nav" data-view="products"><span class="n">1</span>Products<span class="cnt" id="c-products"></span></button>
+    <button class="nav" data-view="my"><span class="n">2</span>My products<span class="cnt" id="c-my"></span></button>
+    <div class="grp">Create</div>
+    <button class="nav" data-view="concepts"><span class="n">3</span>Concepts</button>
+    <button class="nav" data-view="generations"><span class="n">4</span>Generations<span class="cnt" id="c-gen"></span></button>
+    <button class="nav" data-view="finals"><span class="n">5</span>Finals<span class="cnt" id="c-fin"></span></button>
+    <div class="grp">Library &amp; posting</div>
+    <button class="nav" data-view="library"><span class="n"></span>Hooks &amp; reveals</button>
+    <button class="nav" data-view="schedule"><span class="n"></span>Schedule<span class="soon">later</span></button>
+    <div class="rail-foot">Higgsfield credits today<b id="credits">0</b><button class="btn" id="reset" style="margin-top:10px;width:100%">Reset example data</button></div>
   </nav>
   <main id="main"></main>
 </div>
@@ -177,144 +195,236 @@ textarea{width:100%;min-height:72px;resize:vertical;background:var(--bg);color:v
 
 <script>
 const IMG={v1:"img/v1.jpg",v2:"img/v2.jpg",v3:"img/v3.jpg",v4:"img/v4.jpg"};
-const grad=(a,b)=>`linear-gradient(160deg,${a},${b})`;
-const S={
-  viral:[
-    {id:"vr1",img:IMG.v2,plat:"Instagram",handle:"@cabin.family.fun",views:"8.4M",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",niche:"Toys · Christmas gifts",hook:"Dad snatches the kids' screens, then reveals the box",format:"Family gift reaction, 6 shots, 15s",emotion:"Surprise → excitement → dad/son bonding",added:false},
-    {id:"vr2",img:IMG.v1,plat:"TikTok",handle:"@rpm.gallery",views:"12.1M",likes:"1.3M",comments:"22K",posted:"4 days ago",product:"FPV RC car + VR headset",niche:"Gadgets · Gifts for dads",hook:"\"What they see…\" vs the in-car POV",format:"POV wow factor, impossible camera angles",emotion:"Curiosity, nostalgia, 'I need this'",added:true},
-    {id:"vr3",img:"",bg:grad("#3a1550","#0d2a4a"),plat:"TikTok",handle:"@glowroomco",views:"5.2M",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",niche:"Home decor · Bedroom",hook:"Girlfriend turns off the light, room becomes a galaxy",format:"Partner reaction, 4 shots, 12s",emotion:"Wonder, cozy, romantic",added:false},
-    {id:"vr4",img:"",bg:grad("#4a2a10","#1a1a1a"),plat:"Instagram",handle:"@relaxlabs",views:"3.9M",likes:"201K",comments:"4.8K",posted:"3 days ago",product:"Mini massage gun",niche:"Health · Gifts for parents",hook:"Grandpa tries it for the first time",format:"First-try reaction, 5 shots, 15s",emotion:"Funny, wholesome",added:false}
+const G=(a,b)=>`linear-gradient(160deg,${a},${b})`;
+const uid=()=>Math.random().toString(36).slice(2,9);
+
+function seed(){return{
+  credits:216,
+  finds:[
+    {id:"f1",img:IMG.v2,handle:"@cabin.family.fun",followers:"18K",views:"8.4M",x:"466×",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",supplier:"AliExpress · $21.40",hook:"Dad snatches the kids' screens, then reveals the box",reveal:"Unbox → projector lights up the wall → family plays",link:"instagram.com/reel/…"},
+    {id:"f2",img:"",bg:G("#3a1550","#0d2a4a"),handle:"@glowroomco",followers:"42K",views:"5.2M",x:"124×",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",supplier:"AliExpress · $9.80",hook:"Girlfriend turns off the light",reveal:"Room turns into a galaxy, slow pan",link:"instagram.com/reel/…"},
+    {id:"f3",img:"",bg:G("#4a2a10","#1a1a1a"),handle:"@relaxlabs",followers:"9K",views:"3.9M",x:"433×",likes:"201K",comments:"4.8K",posted:"3 days ago",product:"Mini massage gun",supplier:"AliExpress · $12.10",hook:"Grandpa tries it for the first time",reveal:"Close-up of muscle ripple + his face",link:"instagram.com/reel/…"},
+    {id:"f4",img:"",bg:G("#12402a","#0b0b10"),handle:"@garagehacks",followers:"61K",views:"2.7M",x:"44×",likes:"150K",comments:"2.2K",posted:"today",product:"Magnetic phone car mount",supplier:"AliExpress · $3.20",hook:"\"Stop buying cheap mounts\"",reveal:"Pothole test, phone doesn't move",link:"instagram.com/reel/…"},
+    {id:"f5",img:"",bg:G("#40210f","#2a0f2a"),handle:"@cozycorner.home",followers:"25K",views:"1.9M",x:"76×",likes:"98K",comments:"1.4K",posted:"today",product:"Heated desk pad",supplier:"AliExpress · $14.90",hook:"POV: your office is freezing",reveal:"Hands on pad, steam of coffee, smile",link:"instagram.com/reel/…"}
   ],
-  concepts:[
-    {id:"c1",from:"vr2",img:IMG.v1,views:"12.1M",tag:"POV wow factor",title:"Living-room Grand Prix",product:"FPV RC car + VR headset",hook:"\"My dad hasn't moved from the couch in 3 hours\"",desc:"Dad and teenage son race two RC cars through the house wearing VR headsets. Cut between their reactions and the in-car POV under tables and past the dog.",len:"15s",vids:[
-      {id:"g1",bg:IMG.v4,dur:"0:15",cr:72,st:"ready"},
-      {id:"g2",bg:IMG.v1,dur:"0:15",cr:72,st:"ready"}]},
-    {id:"c2",from:"vr1",img:IMG.v2,views:"8.4M",tag:"Gift reaction",title:"Screens off, game on",product:"Projector hunting game",hook:"\"The perfect Christmas gift doesn't exi—\"",desc:"Mom films as dad takes the kids' tablets away, reveals the box, sets up the projector and the whole family plays on the living-room wall.",len:"15s",vids:[
-      {id:"g3",bg:IMG.v3,dur:"0:15",cr:72,st:"ready"},
-      {id:"g4",bg:"",bgc:grad("#2b1d12","#121218"),dur:"0:15",cr:72,st:"generating"}]}
+  products:[
+    {id:"p1",from:"Projector hunting game",img:IMG.v2,variation:"Same product, rebrand",niche:"Toys · Christmas gifts",nameOpts:["WildBeam","HuntGlow","TrailShot Arcade","Buckshot Beam"],name:"WildBeam",color:"#d9480f",kit:{logo:"ok",cover:"ok",collage:"ok",box:"ok"},supplier:"AliExpress · $21.40",handles:"@wildbeam.game"},
+    {id:"p2",from:"FPV RC car + VR headset",img:IMG.v1,variation:"Variation: racing drift car",niche:"Gadgets · Gifts for dads",nameOpts:["DriftView","PilotSeat","CouchRacer","FirstLap"],name:"DriftView",color:"#1f9e5a",kit:{logo:"ok",cover:"pending",collage:"pending",box:"todo"},supplier:"AliExpress · $54.00",handles:"@driftview"},
+    {id:"p3",from:"Galaxy star projector",img:"",bg:G("#3a1550","#0d2a4a"),variation:"",niche:"",nameOpts:[],name:"",color:"#6c3fd1",kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:"AliExpress · $9.80",handles:""}
   ],
-  review:[
-    {id:"r1",bg:IMG.v4,title:"Living-room Grand Prix · take 3",product:"FPV RC car + VR headset",dur:"0:15",st:"pending"},
-    {id:"r2",bg:IMG.v3,title:"Screens off, game on · take 1",product:"Projector hunting game",dur:"0:15",st:"pending"},
-    {id:"r3",bg:"",bgc:grad("#3a1550","#0d2a4a"),title:"Bedroom galaxy · take 2",product:"Galaxy star projector",dur:"0:12",st:"drive"}
+  hooks:[
+    {id:"h1",name:"3-2-1 countdown",desc:"On-screen countdown energy: \"3, 2, 1…\" then the product does something surprising.",fits:"Gadgets, toys, anything with a wow moment",bg:G("#2b1d4a","#0b0b10")},
+    {id:"h2",name:"Pass out in the store",desc:"Someone sees the product on a shelf and dramatically faints / falls over.",fits:"Impulse buys, novelty products",bg:G("#3a2a10","#0b0b10")},
+    {id:"h3",name:"Concept vs product",desc:"\"What they see…\" (the idea) vs the real POV of the product in use.",fits:"Gadgets with a POV or a hidden experience",img:IMG.v1},
+    {id:"h4",name:"Screens taken away",desc:"Parent grabs the kids' tablets, kids are annoyed, then the box appears.",fits:"Family gifts, toys",img:IMG.v2},
+    {id:"h5",name:"The perfect gift doesn't exi—",desc:"Text-style hook, cut off mid-sentence by the reveal.",fits:"Gifts, Q4",bg:G("#40102a","#0b0b10")}
   ],
-  posts:[
-    {d:0,t:"09:30",img:IMG.v1,pl:["tt","ig","yt","fb"],cap:"POV: you gave dad the best gift of his life 🏎️",st:"posted"},
-    {d:0,t:"18:00",img:IMG.v3,pl:["tt","ig"],cap:"The perfect Christmas gift doesn't exi—",st:"scheduled"},
-    {d:1,t:"12:00",img:"",bg:grad("#3a1550","#0d2a4a"),pl:["tt","ig","fb"],cap:"She had no idea what was coming ✨",st:"scheduled"},
-    {d:2,t:"09:30",img:IMG.v4,pl:["yt","tt"],cap:"What they see vs what it looks like",st:"scheduled"},
-    {d:3,t:"19:00",img:IMG.v2,pl:["ig","fb"],cap:"Took their tablets. Zero regrets.",st:"failed"},
-    {d:4,t:"10:00",img:"",bg:grad("#4a2a10","#1a1a1a"),pl:["tt","ig","yt","fb"],cap:"Grandpa's first time 😂",st:"scheduled"},
-    {d:6,t:"17:30",img:IMG.v1,pl:["tt"],cap:"3 hours later he still won't give it back",st:"scheduled"}
+  reveals:[
+    {id:"r1",name:"Unbox → instant use",desc:"Tearing the box open, product out, used within 3 seconds.",fits:"Anything with packaging",img:IMG.v3},
+    {id:"r2",name:"In-product POV",desc:"Camera sees what the product sees (car, drone, toy).",fits:"RC, cameras, toys",img:IMG.v4},
+    {id:"r3",name:"Lights-off transformation",desc:"Room goes dark, product transforms the space.",fits:"Lights, projectors",bg:G("#1a1550","#0b0b10")},
+    {id:"r4",name:"Reaction close-up",desc:"Tight shot on a face: shock, laugh, tears.",fits:"Gifts, surprises",bg:G("#3a1d12","#0b0b10")}
   ],
-  ui:{fixOpen:null,delAsk:null,postSel:null,vfilter:"All"}
-};
-try{const saved=JSON.parse(localStorage.getItem('vs-state')||'null');if(saved&&saved.v===1){Object.assign(S,saved.s);S.ui={fixOpen:null,delAsk:null,postSel:null,vfilter:'All'}}}catch(e){}
-const PL={yt:"YT",tt:"TT",ig:"IG",fb:"FB"};
+  gens:[
+    {id:"g1",pid:"p1",hook:"Screens taken away",reveal:"Unbox → instant use",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v3,st:"ready"},
+    {id:"g2",pid:"p1",hook:"Concept vs product",reveal:"Reaction close-up",engine:"Genjutsu",dur:"0:15",cr:72,bg:IMG.v2,st:"fixing",fix:"Box logo is blurry in shot 2"},
+    {id:"g3",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v4,st:"ready"},
+    {id:"g4",pid:"p2",hook:"3-2-1 countdown",reveal:"In-product POV",engine:"Seedance",dur:"0:12",cr:58,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"},
+    {id:"g5",pid:"p1",hook:"Screens taken away",reveal:"Reaction close-up",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v3,st:"final",drive:false},
+    {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
+  ],
+  concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false}
+}}
+let S=seed();
+try{const s=JSON.parse(localStorage.getItem("vs2")||"null");if(s&&s.v===2){S=s.s;S.ui={...seed().ui}}}catch(e){}
+const save=()=>{try{localStorage.setItem("vs2",JSON.stringify({v:2,s:S}))}catch(e){}};
+
 const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const bgOf=o=>o.bg&&o.bg.startsWith("img/")?`background-image:url('${o.bg}')`:o.img?`background-image:url('${o.img}')`:`background:${o.bgc||o.bg||"var(--panel2)"}`;
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const bg=o=>o.img?`background-image:url('${o.img}')`:o.bg&&o.bg.startsWith("img/")?`background-image:url('${o.bg}')`:`background:${o.bgc||o.bg||"var(--panel2)"}`;
+const P=id=>S.products.find(p=>p.id===id);
+const initials=n=>(n||"?").replace(/[^A-Za-z ]/g,"").split(/\s+|(?=[A-Z])/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase()||"?";
+const logo=(p,cls="plogo")=>`<span class="${cls}" style="background:${p.name?p.color:"var(--panel2)"}">${p.name?initials(p.name):"?"}</span>`;
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(t._t);t._t=setTimeout(()=>t.hidden=true,2200)}
+const kitDone=p=>Object.values(p.kit).filter(v=>v==="ok").length;
+const pStep=p=>(p.variation?1:0)+(p.name?1:0)+(kitDone(p)===4?1:0);
 
 function counts(){
-  $("#c-today").textContent=S.concepts.reduce((n,c)=>n+c.vids.length,0);
-  $("#c-review").textContent=S.review.filter(r=>r.st==="pending").length;
-  $("#c-schedule").textContent=S.posts.filter(p=>p.st!=="posted").length;
-  $("#c-viral").textContent=S.viral.length;
-  $("#credits").textContent=S.concepts.reduce((n,c)=>n+c.vids.reduce((m,v)=>m+v.cr,0),0);
-}
-
-function vTile(v,c){
-  const st=v.st==="generating"?'<span class="status gen">Generating…</span>':v.st==="fixing"?'<span class="status fix">Regenerating with fix…</span>':v.st==="upscaling"?'<span class="status ok">Sent to upscale</span>':"";
-  let act;
-  if(S.ui.fixOpen===v.id){
-    act=`<div class="fixbox"><label class="note" for="fx-${v.id}">What's wrong with this video?</label><textarea id="fx-${v.id}" placeholder="e.g. the car looks plastic in shot 3, dad's lips don't match the words"></textarea><div class="row"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-v="${v.id}" data-c="${c.id}">Regenerate</button></div></div>`;
-  }else if(S.ui.delAsk===v.id){
-    act=`<div class="confirm">Delete this video?</div><div class="row"><button class="btn" data-a="delno">Keep</button><button class="btn del" data-a="delyes" data-v="${v.id}" data-c="${c.id}">Delete</button></div>`;
-  }else if(v.st==="ready"){
-    act=`<div class="actions"><button class="btn cy" data-a="fix" data-v="${v.id}">Fix</button><button class="btn pri" data-a="up" data-v="${v.id}" data-c="${c.id}">Upscale</button><button class="btn del" data-a="del" data-v="${v.id}">Delete</button></div>`;
-  }else act=`<div class="note">${v.st==="generating"?"Seedance 2.5 · 480p · about 3 min left":"You'll see the new take here when it's done"}</div>`;
-  return `<div class="vid"><div class="player" style="${bgOf(v)}">${st}${v.st==="ready"?'<span class="play" aria-hidden="true"></span>':""}<div class="p-info"><span>${v.dur} · 480p</span><span>${v.cr} cr</span></div></div>${act}</div>`;
+  $("#c-products").textContent=S.finds.length;
+  $("#c-my").textContent=S.products.length;
+  $("#c-gen").textContent=S.gens.filter(g=>g.st!=="final").length;
+  $("#c-fin").textContent=S.gens.filter(g=>g.st==="final").length;
+  $("#credits").textContent=S.credits;
 }
 
 const V={
-today(){
-  const d=new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
-  const total=S.concepts.reduce((n,c)=>n+c.vids.length,0);
-  return `<div class="head"><div><h1>Today</h1><p class="sub">${d} · ${S.concepts.length} concepts from today's viral finds · ${total} videos generated</p></div><span class="example">Example data</span></div>
-  ${S.concepts.length?S.concepts.map(c=>`<section class="concept">
-    <div class="c-top">
-      <div class="c-src" style="background-image:url('${c.img}')" title="Source viral video"><span>${c.views}</span></div>
-      <div class="c-meta"><div class="eyebrow">${esc(c.tag)} · ${esc(c.product)}</div><h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p><p class="hook"><b>Hook</b> ${esc(c.hook)}</p>
-      <div class="tags"><span class="tag">Seedance 2.5</span><span class="tag">${c.len}</span><span class="tag">9:16</span><span class="tag">Sound + lip-sync</span><span class="tag">No start frame</span></div></div>
-      <button class="btn" data-a="more" data-c="${c.id}">+ 1 more take</button>
-    </div>
-    <div class="vids">${c.vids.map(v=>vTile(v,c)).join("")||'<p class="note">All takes handled.</p>'}</div>
-  </section>`).join(""):'<div class="empty">No concepts yet today. Turn a video from Viral into a concept to start.</div>'}`;
+products(){
+  return `<div class="head"><div><h1>Products</h1><p class="sub">Viral products I found scrolling your burner Instagram. Pick the ones worth selling. Skipped ones get replaced with a new find.</p></div><span class="example">Example data</span></div>
+  <div class="scrollbar panel">
+    ${S.ui.scrolling?`<div class="scrolling"><span class="spin"></span>Scrolling Instagram Reels in your Chrome… looking for outliers (10×+ the account's usual views)</div><button class="btn" data-a="stopscroll">Stop</button>`
+    :`<div><b>Ready to scroll</b><div class="note">Uses Claude in Chrome on your PC with your burner account logged in. Finds 5 outlier reels per run.</div></div><button class="btn pri big" data-a="scroll">Start scrolling</button>`}
+  </div>
+  ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><div class="player" style="${bg(f)}"><span class="play"></span></div>
+    <div style="min-width:0"><div class="eyebrow">${esc(f.handle)} · ${esc(f.followers)} followers · ${esc(f.posted)}</div><h3>${esc(f.product)}</h3><div class="note">${esc(f.supplier)} · ${esc(f.link)}</div>
+      <dl class="why"><dt>Hook</dt><dd>${esc(f.hook)}</dd><dt>Reveal</dt><dd>${esc(f.reveal)}</dd></dl></div>
+    <div class="act"><div class="nums"><div class="num hl"><small>vs usual</small><b>${f.x}</b></div><div class="num"><small>Views</small><b>${f.views}</b></div><div class="num"><small>Likes</small><b>${f.likes}</b></div><div class="num"><small>Comments</small><b>${f.comments}</b></div></div>
+      <div class="row fill"><button class="btn bad" data-a="skip" data-id="${f.id}">Skip</button><button class="btn pri" data-a="pick" data-id="${f.id}">Pick</button></div></div>
+  </article>`).join(""):'<div class="empty">No finds right now. Press Start scrolling.</div>'}`;
 },
-review(){
-  return `<div class="head"><div><h1>Review</h1><p class="sub">Upscaled videos waiting for your OK</p></div><span class="example">Example data</span></div>
-  <div class="flow"><b>Approve</b><span class="arr">→</span>saved to Google Drive / Viral Studio / To edit<span class="arr">→</span>you edit in CapCut<span class="arr">→</span>drop it in <b>/Ready to post</b><span class="arr">→</span>it appears in Schedule posts</div>
-  <div class="rgrid">${S.review.map(r=>`<div class="rcard"><div class="player" style="${bgOf(r)}">${r.st==="drive"?'<span class="status ok">In Google Drive</span>':""}<span class="play" aria-hidden="true"></span><div class="p-info"><span>${r.dur} · upscaled</span></div></div>
-    <h4>${esc(r.title)}</h4><div class="note">${esc(r.product)}</div>
-    ${r.st==="pending"?`<div class="row"><button class="btn del" data-a="rrej" data-r="${r.id}">Reject</button><button class="btn pri" data-a="rok" data-r="${r.id}">Approve → Drive</button></div>`:`<div class="note">Waiting for your edited version in /Ready to post</div>`}
-  </div>`).join("")}</div>`;
+my(){
+  if(S.ui.prod&&P(S.ui.prod))return V.product(P(S.ui.prod));
+  return `<div class="head"><div><h1>My products</h1><p class="sub">Each product becomes its own brand: name, logo, Facebook cover, product photos and box. Open one to set it up or see its finished videos.</p></div><span class="example">Example data</span></div>
+  <div class="pgrid">${S.products.map(p=>{const s=pStep(p),fin=S.gens.filter(g=>g.pid===p.id&&g.st==="final").length;return `<button class="pcard panel" data-a="open" data-id="${p.id}">
+    <div class="row" style="flex-wrap:nowrap">${logo(p)}<div style="min-width:0"><h3 style="font-size:17px">${esc(p.name||"Not named yet")}</h3><div class="note">${esc(p.from)}</div></div></div>
+    <div class="steps" aria-label="Setup ${s} of 3">${[0,1,2].map(i=>`<span class="${i<s?"on":""}"></span>`).join("")}</div>
+    <div class="row"><span class="pill ${s===3?"ok":"warn"}">${s===3?"Brand ready":["Pick variation","Pick name","Brand kit"][s]}</span><span class="pill cy">${fin} final videos</span></div>
+  </button>`}).join("")}</div>`;
+},
+product(p){
+  const kitItem=(k,label,art,cls="")=>{const st=p.kit[k];return `<div class="asset ${cls}"><div class="art ${k==="cover"?"wide":"sq"}" style="background:${st==="todo"?"var(--panel2)":"var(--panel2)"}">${st==="todo"?'<span class="note">Not generated</span>':st==="gen"?'<span class="scrolling" style="font-size:12px"><span class="spin"></span>Generating</span>':art}</div>
+    <div class="row" style="justify-content:space-between"><b style="font-size:13px">${label}</b>${st==="ok"?'<span class="pill ok">Approved</span>':st==="pending"?'<span class="pill warn">Needs your OK</span>':""}</div>
+    ${!p.name?'<div class="note">Pick a name first</div>':st==="todo"?`<button class="btn" data-a="kitgen" data-k="${k}">Generate</button>`:st==="pending"?`<div class="row fill"><button class="btn" data-a="kitgen" data-k="${k}">Redo</button><button class="btn ok" data-a="kitok" data-k="${k}">Approve</button></div>`:st==="ok"?`<button class="btn" data-a="kitgen" data-k="${k}">Regenerate</button>`:""}</div>`};
+  const mono=`<span class="mono" style="font-size:40px;background:${p.color};width:70%;height:70%;border-radius:22%;display:grid;place-items:center">${initials(p.name)}</span>`;
+  const cover=`<div style="position:absolute;inset:0;background:linear-gradient(120deg,${p.color},#0b0b10 75%)"></div><span class="mono" style="position:relative;font-size:26px">${esc(p.name)}</span>`;
+  const collage=`<div class="collage"><div>front</div><div>side</div><div>top</div><div>detail</div></div>`;
+  const box=`<div style="position:absolute;inset:0;background:#f4f4f7"></div><div class="box3d" style="position:relative;background:${p.color}">${esc(p.name)}</div>`;
+  const fins=S.gens.filter(g=>g.pid===p.id&&g.st==="final");
+  const vars=["Same product, rebrand","Variation: bigger / premium version","Variation: different color/theme","Other niche: gifts for dads","Other niche: pets"];
+  return `<button class="back" data-a="closeprod">← My products</button>
+  <div class="head"><div class="row" style="flex-wrap:nowrap">${logo(p)}<div><h1>${esc(p.name||"Not named yet")}</h1><p class="sub">From viral find: ${esc(p.from)}</p></div></div><button class="btn bad" data-a="delprod" data-id="${p.id}">Remove product</button></div>
+  <div class="detail"><div>
+    <section class="step panel"><div class="step-h"><span class="k ${p.variation?"done":""}">1</span><h3>Variation or new niche</h3></div>
+      <p class="note" style="margin-top:-4px">Ask for a variation of the product or take it into another niche. I'll suggest options.</p>
+      <div class="opts">${vars.map(v=>`<button class="chip" aria-pressed="${p.variation===v}" data-a="var" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>
+      <label class="f" style="margin-top:10px">Or describe your own<input type="text" id="varown" placeholder="e.g. make it for cat owners"></label>
+    </section>
+    <section class="step panel"><div class="step-h"><span class="k ${p.name?"done":""}">2</span><h3>Product name</h3></div>
+      ${p.variation?(p.nameOpts.length?`<div class="opts">${p.nameOpts.map(n=>`<button class="chip" aria-pressed="${p.name===n}" data-a="name" data-v="${esc(n)}">${esc(n)}</button>`).join("")}<button class="chip" data-a="morenames">Suggest more</button></div>`:`<button class="btn" data-a="morenames">Suggest names</button>`):'<p class="note">Pick a variation first.</p>'}
+    </section>
+    <section class="step panel"><div class="step-h"><span class="k ${kitDone(p)===4?"done":""}">3</span><h3>Brand kit</h3><span class="note" style="margin-left:auto">${kitDone(p)} of 4 approved</span></div>
+      <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
+    </section>
+    <section class="step panel"><div class="step-h"><h3>Final videos</h3><span class="note" style="margin-left:auto">Approved and upscaled hook + reveal combos</span></div>
+      ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}"><span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
+    </section>
+  </div>
+  <aside class="side"><div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Socials</dt><dd>${esc(p.handles||"—")}</dd></dl></div>
+    <div class="panel"><div class="player" style="${bg(p)};width:140px"><span class="play"></span></div><p class="note">Source viral video</p></div>
+    ${pStep(p)===3?`<button class="btn pri big" data-a="toconcept" data-id="${p.id}">Make concepts →</button>`:'<p class="note">Finish all 3 steps to start making videos.</p>'}
+  </aside></div>`;
+},
+concepts(){
+  const ready=S.products.filter(p=>pStep(p)===3);
+  const c=S.concept; if(!ready.find(p=>p.id===c.pid))c.pid=ready[0]?.id;
+  const p=P(c.pid);
+  const combos=[];c.hooks.forEach(h=>c.reveals.forEach(r=>combos.push({h,r,key:h+"|"+r})));
+  const hk=id=>S.hooks.find(x=>x.id===id),rv=id=>S.reveals.find(x=>x.id===id);
+  const card=(x,kind,sel)=>`<button class="lcard" aria-pressed="${sel}" data-a="pick${kind}" data-id="${x.id}"><div class="player" style="${bg(x)}"></div><div><h4>${esc(x.name)}</h4><p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div></div></button>`;
+  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Pick a product, then the hooks and reveals to recreate. Each hook + reveal pair becomes one video. Choose Seedance (built from scratch) or Genjutsu (our product swapped into the viral video) per pair.</p></div><span class="example">Example data</span></div>
+  ${!ready.length?'<div class="empty">No product is ready yet. Finish a product\'s brand kit in My products first.</div>':`
+  <section class="cstep"><h2><span class="k">1</span>Product</h2><div class="opts">${ready.map(x=>`<button class="chip" aria-pressed="${x.id===c.pid}" data-a="cprod" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div></section>
+  <section class="cstep"><h2><span class="k">2</span>Hooks <span class="note">${c.hooks.length} selected</span></h2><div class="lgrid">${S.hooks.map(h=>card(h,"hook",c.hooks.includes(h.id))).join("")}</div></section>
+  <section class="cstep"><h2><span class="k">3</span>Reveals <span class="note">${c.reveals.length} selected</span></h2><div class="lgrid">${S.reveals.map(r=>card(r,"rev",c.reveals.includes(r.id))).join("")}</div>
+    <p class="note">Need a new one? Add it in Hooks &amp; reveals.</p></section>
+  <section class="cstep panel"><h2><span class="k">4</span>Videos to generate for ${esc(p.name)}</h2>
+    ${combos.length?`<div class="combos">${combos.map(o=>{const e=c.engines[o.key]||"Seedance";return `<div class="combo"><div><b>${esc(hk(o.h).name)}</b> + ${esc(rv(o.r).name)}</div><span class="note">${e==="Seedance"?"length: I decide":"length: like source"}</span><div class="seg" role="group"><button aria-pressed="${e==="Seedance"}" data-a="eng" data-k="${o.key}" data-v="Seedance">Seedance</button><button aria-pressed="${e==="Genjutsu"}" data-a="eng" data-k="${o.key}" data-v="Genjutsu">Genjutsu</button></div><button class="btn bad" data-a="rmcombo" data-h="${o.h}" data-r="${o.r}" aria-label="Remove">✕</button></div>`}).join("")}</div>
+    <div class="genbar"><span class="note">${combos.length} video${combos.length>1?"s":""} · about ${combos.length*72} credits · 1 take each · 480p, 9:16, sound on</span><button class="btn pri big" data-a="generate">Generate ${combos.length} video${combos.length>1?"s":""}</button></div>`:'<p class="note">Select at least one hook and one reveal.</p>'}
+  </section>`}`;
+},
+generations(){
+  const list=S.gens.filter(g=>g.st!=="final");
+  const groups=S.products.filter(p=>list.some(g=>g.pid===p.id));
+  return `<div class="head"><div><h1>Generations</h1><p class="sub">New clips. Approve sends a clip to upscale and then to Finals. Fix keeps it here until you approve it. Drop deletes it.</p></div><span class="example">Example data</span></div>
+  ${groups.length?groups.map(p=>`<section class="ggroup"><div class="ggroup-h">${logo(p)}<h2 style="font-size:17px">${esc(p.name)}</h2></div><div class="vids">${list.filter(g=>g.pid===p.id).map(gTile).join("")}</div></section>`).join(""):'<div class="empty">Nothing waiting. Generate videos in Concepts.</div>'}`;
+},
+finals(){
+  const list=S.gens.filter(g=>g.st==="final");
+  const notIn=list.filter(g=>!g.drive).length;
+  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved, upscaled to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
+  <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
+  ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}"><span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
+    <div class="lab"><b>${esc(p?.name||"")}</b>${esc(g.hook)} + ${esc(g.reveal)}</div>
+    ${g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
+},
+library(){
+  const t=S.ui.libTab,list=t==="hooks"?S.hooks:S.reveals;
+  return `<div class="head"><div><h1>Hooks &amp; reveals</h1><p class="sub">Your library. Hooks are the first 2–3 seconds. Reveals are how the product is shown. Concepts combine one of each.</p></div><button class="btn pri" data-a="addopen">Add ${t==="hooks"?"hook":"reveal"}</button></div>
+  <div class="tabs"><button class="chip" aria-pressed="${t==="hooks"}" data-a="tab" data-v="hooks">Hooks (${S.hooks.length})</button><button class="chip" aria-pressed="${t==="reveals"}" data-a="tab" data-v="reveals">Reveals (${S.reveals.length})</button></div>
+  ${S.ui.addOpen?`<form class="addform panel" id="addform"><label class="f">Name<input type="text" id="an" required placeholder="${t==="hooks"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label><label class="f">Best product types<input type="text" id="af" placeholder="e.g. Gadgets, toys"></label><label class="f full">How it works<textarea id="ad" placeholder="Describe the shots"></textarea></label><label class="f full">Example video link<input type="text" id="al" placeholder="instagram.com/reel/…"></label><div class="row full"><button class="btn" type="button" data-a="addclose">Cancel</button><button class="btn pri" type="submit">Save</button></div></form>`:""}
+  <div class="lgrid">${list.map(x=>`<div class="lcard" style="grid-template-columns:80px 1fr"><div class="player" style="${bg(x)};width:80px"><span class="play"></span></div><div><h4>${esc(x.name)}</h4><p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div><button class="btn bad" style="margin-top:8px;padding:4px 10px;font-size:12px" data-a="libdel" data-id="${x.id}">Delete</button></div></div>`).join("")}</div>`;
 },
 schedule(){
-  const now=new Date(),start=new Date(now);start.setDate(now.getDate());
-  const days=[...Array(7)].map((_,i)=>{const x=new Date(start);x.setDate(start.getDate()+i);return x});
-  const sel=S.ui.postSel!=null?S.posts[S.ui.postSel]:null;
-  return `<div class="head"><div><h1>Schedule posts</h1><p class="sub">Next 7 days · YouTube Shorts, TikTok, Instagram Reels, Facebook Reels</p></div><span class="example">Example data</span></div>
-  <div class="cal-wrap"><div class="cal">${days.map((x,i)=>`<div class="day ${i===0?"today":""}"><div class="day-h"><b>${x.toLocaleDateString("en-GB",{weekday:"short"})}</b><span>${x.getDate()} ${x.toLocaleDateString("en-GB",{month:"short"})}</span></div><div class="day-b">
-    ${S.posts.map((p,k)=>({p,k})).filter(o=>o.p.d===i).sort((a,b)=>a.p.t.localeCompare(b.p.t)).map(({p,k})=>`<button class="post ${p.st}" data-a="psel" data-k="${k}"><span class="th" style="${p.img?`background-image:url('${p.img}')`:`background:${p.bg}`}"></span><span class="pi"><time>${p.t}${p.st==="posted"?" · posted":p.st==="failed"?" · failed":""}</time><span class="plats">${p.pl.map(x=>`<span class="pl ${x}">${PL[x]}</span>`).join("")}</span><span class="cap">${esc(p.cap)}</span></span></button>`).join("")}
-  </div></div>`).join("")}</div></div>
-  <div class="legend"><span><span class="pl yt">YT</span> YouTube Shorts</span><span><span class="pl tt">TT</span> TikTok</span><span><span class="pl ig">IG</span> Instagram Reels</span><span><span class="pl fb">FB</span> Facebook Reels</span><span>Faded = already posted · red border = failed</span></div>
-  ${sel?`<div class="detail"><div class="player" style="${sel.img?`background-image:url('${sel.img}')`:`background:${sel.bg}`}"><span class="play" aria-hidden="true"></span></div><div><h4>${days[sel.d].toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"short"})} at ${sel.t}</h4><div class="plats">${sel.pl.map(x=>`<span class="pl ${x}">${PL[x]}</span>`).join("")}</div><p>${esc(sel.cap)}</p><p class="note">#giftideas #christmasgift #tiktokmademebuyit · captions are written per platform</p>${sel.st==="failed"?'<p style="color:var(--bad)">Instagram rejected the upload: video is shorter than 3 seconds after editing. Replace the file in /Ready to post.</p>':""}${sel.st!=="posted"?`<div class="row" style="max-width:360px"><button class="btn" data-a="pnow" data-k="${S.ui.postSel}">Post now</button><button class="btn del" data-a="pdel" data-k="${S.ui.postSel}">Unschedule</button></div>`:""}</div></div>`:'<p class="note" style="margin-top:14px">Select a post to see its caption and details.</p>'}`;
-},
-viral(){
-  const f=S.ui.vfilter;
-  const list=S.viral.filter(v=>f==="All"||v.plat===f);
-  return `<div class="head"><div><h1>Viral</h1><p class="sub">Found today by your IG product finder · ranked by views</p></div><span class="example">Example data</span></div>
-  <div class="filters" style="margin-bottom:16px">${["All","TikTok","Instagram"].map(x=>`<button class="chip" aria-pressed="${x===f}" data-a="vf" data-f="${x}">${x}</button>`).join("")}</div>
-  <div class="vlist">${list.map(v=>`<article class="vrow"><div class="player" style="${v.img?`background-image:url('${v.img}')`:`background:${v.bg}`}"><span class="play" aria-hidden="true"></span></div>
-    <div style="min-width:0"><div class="eyebrow">${esc(v.niche)}</div><h3>${esc(v.product)}</h3><div class="src">${v.plat} · ${esc(v.handle)} · ${v.posted}</div>
-      <dl class="why"><dt>Hook</dt><dd>${esc(v.hook)}</dd><dt>Format</dt><dd>${esc(v.format)}</dd><dt>Emotion</dt><dd>${esc(v.emotion)}</dd></dl></div>
-    <div class="side"><div class="nums"><div class="num"><small>Views</small><b>${v.views}</b></div><div class="num"><small>Likes</small><b>${v.likes}</b></div><div class="num"><small>Comm.</small><b>${v.comments}</b></div></div>
-      ${v.added?'<button class="btn" disabled style="opacity:.6">Concept in Today ✓</button>':`<button class="btn pri" data-a="mk" data-id="${v.id}">Make concept</button>`}</div>
-  </article>`).join("")}</div>`;
+  return `<div class="head"><div><h1>Schedule</h1><p class="sub">Coming later.</p></div></div>
+  <div class="panel soonbox"><h3 style="margin-bottom:8px">Planned</h3><ul><li>Pick up edited videos from Google Drive /Ready to post</li><li>Week calendar for YouTube Shorts, TikTok, Instagram Reels and Facebook Reels</li><li>Caption and hashtags written for each platform</li><li>Post to each product's own brand accounts</li></ul></div>`;
 }};
 
-function route(){const h=(location.hash||"#today").slice(1);return V[h]?h:"today"}
+function gTile(g){
+  const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
+  let act;
+  if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
+  else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
+  else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
+  else act=`<div class="note">${g.st==="generating"?"About 3 min left":g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling to 1080p, then moves to Finals"}</div>`;
+  return `<div class="vid"><div class="player" style="${bg(g)}">${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div>${act}</div>`;
+}
+
+function route(){const h=(location.hash||"#products").slice(1);return V[h]&&h!=="product"?h:"products"}
 function render(){
   const v=route();
   document.querySelectorAll(".nav").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v?"page":"false"));
-  $("#main").innerHTML=V[v]();counts();
-  try{localStorage.setItem('vs-state',JSON.stringify({v:1,s:{viral:S.viral,concepts:S.concepts.map(c=>({...c,vids:c.vids.map(x=>x.st==='generating'||x.st==='fixing'?{...x,st:'ready',bg:x.bg||c.img}:x)})),review:S.review,posts:S.posts}}))}catch(e){}
+  $("#main").innerHTML=V[v]();counts();save();
+  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;list.push({id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")});S.ui.addOpen=false;toast("Saved to library");render()};
+  const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
-document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{location.hash=b.dataset.view});
+function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
+function setVar(p,v){p.variation=v;p.nameOpts=[];p.name="";Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Variation set. Suggesting names…");later(900,()=>{p.nameOpts=suggest(p)});render()}
+function suggest(p){const base=["Nova","Glow","Pulse","Orbit","Loop","Spark","Peak","Haven","Bolt","Echo"],end=["Beam","Lab","Play","Box","Go","Kit","Pro","Mate"];return [...Array(4)].map(()=>base[Math.random()*base.length|0]+end[Math.random()*end.length|0])}
+
+document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{S.ui.prod=null;location.hash=b.dataset.view;render()});
 addEventListener("hashchange",render);
+$("#reset").onclick=()=>{try{localStorage.removeItem("vs2")}catch(e){}S=seed();render()};
 
 $("#main").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b)return;
-  const a=b.dataset.a,findC=id=>S.concepts.find(c=>c.id===id);
-  if(a==="fix"){S.ui.fixOpen=b.dataset.v;S.ui.delAsk=null}
-  if(a==="fixcancel")S.ui.fixOpen=null;
-  if(a==="fixsend"){const c=findC(b.dataset.c),v=c.vids.find(x=>x.id===b.dataset.v);v.st="fixing";S.ui.fixOpen=null;toast("Regenerating with your fix");setTimeout(()=>{v.st="ready";render()},3500)}
-  if(a==="del"){S.ui.delAsk=b.dataset.v;S.ui.fixOpen=null}
-  if(a==="delno")S.ui.delAsk=null;
-  if(a==="delyes"){const c=findC(b.dataset.c);c.vids=c.vids.filter(x=>x.id!==b.dataset.v);S.ui.delAsk=null;toast("Deleted")}
-  if(a==="up"){const c=findC(b.dataset.c),v=c.vids.find(x=>x.id===b.dataset.v);c.vids=c.vids.filter(x=>x!==v);S.review.unshift({id:"r"+Date.now(),bg:v.bg,bgc:v.bgc,title:c.title+" · new take",product:c.product,dur:v.dur,st:"pending"});toast("Upscaling. It will show up in Review.")}
-  if(a==="more"){const c=findC(b.dataset.c);const v={id:"g"+Date.now(),bg:"",bgc:grad("#1d1d2b","#121218"),dur:"0:15",cr:72,st:"generating"};c.vids.push(v);toast("New take started · 72 credits");setTimeout(()=>{v.st="ready";v.bg=c.img;render()},4000)}
-  if(a==="rok"){S.review.find(r=>r.id===b.dataset.r).st="drive";toast("Saved to Google Drive / To edit")}
-  if(a==="rrej"){S.review=S.review.filter(r=>r.id!==b.dataset.r);toast("Rejected")}
-  if(a==="psel")S.ui.postSel=+b.dataset.k;
-  if(a==="pnow"){S.posts[+b.dataset.k].st="posted";toast("Posted")}
-  if(a==="pdel"){S.posts.splice(+b.dataset.k,1);S.ui.postSel=null;toast("Unscheduled")}
-  if(a==="vf")S.ui.vfilter=b.dataset.f;
-  if(a==="mk"){const v=S.viral.find(x=>x.id===b.dataset.id);v.added=true;S.concepts.unshift({id:"c"+Date.now(),from:v.id,img:v.img||IMG.v4,views:v.views,tag:v.format.split(",")[0],title:"New: "+v.product,product:v.product,hook:v.hook,desc:"Rebuilt from scratch with your product. Claude writes the full prompt and generates the first takes.",len:"15s",vids:[{id:"g"+Date.now(),bg:"",bgc:grad("#1d1d2b","#121218"),dur:"0:15",cr:72,st:"generating"}]});toast("Concept added to Today")}
+  const a=b.dataset.a,id=b.dataset.id,gen=S.gens.find(g=>g.id===id),p=S.ui.prod&&P(S.ui.prod);
+  switch(a){
+    case"scroll":S.ui.scrolling=true;later(3500,()=>{S.ui.scrolling=false;S.finds.unshift({id:uid(),img:"",bg:G("#103a40","#0b0b10"),handle:"@newfind",followers:"12K",views:"2.2M",x:"183×",likes:"130K",comments:"1.9K",posted:"today",product:"Self-stirring mug",supplier:"AliExpress · $6.40",hook:"\"My coworkers think I'm a wizard\"",reveal:"Press button, whirlpool forms",link:"instagram.com/reel/…"});toast("Found 1 new viral product")});break;
+    case"stopscroll":S.ui.scrolling=false;break;
+    case"skip":S.finds=S.finds.filter(f=>f.id!==id);toast("Skipped. I'll find a replacement on the next scroll");break;
+    case"pick":{const f=S.finds.find(x=>x.id===id);S.finds=S.finds.filter(x=>x.id!==id);const np={id:uid(),from:f.product,img:f.img,bg:f.bg,variation:"",niche:"",nameOpts:[],name:"",color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:f.supplier,handles:""};S.products.unshift(np);toast("Added to My products");break}
+    case"open":S.ui.prod=id;location.hash="my";break;
+    case"closeprod":S.ui.prod=null;break;
+    case"delprod":S.products=S.products.filter(x=>x.id!==id);S.gens=S.gens.filter(g=>g.pid!==id);S.ui.prod=null;toast("Product removed");break;
+    case"var":setVar(p,b.dataset.v);return;
+    case"morenames":p.nameOpts=suggest(p);break;
+    case"name":p.name=b.dataset.v;p.handles="@"+p.name.toLowerCase();Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Name set. Generate the brand kit next");break;
+    case"kitgen":{const k=b.dataset.k;p.kit[k]="gen";S.credits+=4;later(1500,()=>{p.kit[k]="pending"});break}
+    case"kitok":p.kit[b.dataset.k]="ok";if(kitDone(p)===4)toast("Brand kit done. Ready for concepts");break;
+    case"toconcept":S.concept={pid:id,hooks:[],reveals:[],engines:{}};S.ui.prod=null;location.hash="concepts";break;
+    case"cprod":S.concept={pid:id,hooks:[],reveals:[],engines:{}};break;
+    case"pickhook":{const l=S.concept.hooks;l.includes(id)?l.splice(l.indexOf(id),1):l.push(id);break}
+    case"pickrev":{const l=S.concept.reveals;l.includes(id)?l.splice(l.indexOf(id),1):l.push(id);break}
+    case"eng":S.concept.engines[b.dataset.k]=b.dataset.v;break;
+    case"rmcombo":{const c=S.concept;if(c.hooks.length>1&&c.reveals.length>1){toast("Unselect a hook or reveal to drop this pair")}else if(c.hooks.length===1){c.reveals=c.reveals.filter(x=>x!==b.dataset.r)}else{c.hooks=c.hooks.filter(x=>x!==b.dataset.h)}break}
+    case"generate":{const c=S.concept;const hk=i=>S.hooks.find(x=>x.id===i).name,rv=i=>S.reveals.find(x=>x.id===i).name;const pr=P(c.pid);const made=[];c.hooks.forEach(h=>c.reveals.forEach(r=>{const g={id:uid(),pid:c.pid,hook:hk(h),reveal:rv(r),engine:c.engines[h+"|"+r]||"Seedance",dur:"0:15",cr:72,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};S.gens.unshift(g);made.push(g);S.credits+=72}));S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${made.length} video${made.length>1?"s":""}`);later(4000,()=>made.forEach(g=>{g.st="ready";g.bg=pr.img||IMG.v4}));location.hash="generations";break}
+    case"fix":S.ui.fixOpen=id;S.ui.dropAsk=null;break;
+    case"fixcancel":S.ui.fixOpen=null;break;
+    case"fixsend":gen.fix=$("#fx").value.trim();gen.st="fixing";S.ui.fixOpen=null;S.credits+=gen.cr;toast("Regenerating with your fix");later(3500,()=>{gen.st="ready"});break;
+    case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
+    case"dropno":S.ui.dropAsk=null;break;
+    case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
+    case"approve":gen.st="upscaling";toast("Upscaling to 1080p");later(2500,()=>{gen.st="final";gen.drive=false});break;
+    case"unfinal":gen.st="ready";break;
+    case"drive":gen.drive=true;toast("Sent to Google Drive");break;
+    case"driveall":S.gens.filter(g=>g.st==="final").forEach(g=>g.drive=true);toast("All sent to Google Drive");break;
+    case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
+    case"addopen":S.ui.addOpen=true;break;
+    case"addclose":S.ui.addOpen=false;break;
+    case"libdel":S.hooks=S.hooks.filter(x=>x.id!==id);S.reveals=S.reveals.filter(x=>x.id!==id);break;
+  }
   render();
 });
-document.getElementById('reset').onclick=()=>{try{localStorage.removeItem('vs-state')}catch(e){}location.reload()};
 render();
 </script>
 </body>
