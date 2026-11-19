@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: file:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https: file:; media-src 'self' blob: file: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'">
 <title>Viral Studio</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -186,6 +186,27 @@ a.title-link:hover{text-decoration:underline}
 .lcard[aria-pressed="true"] .sel{background:var(--accent2);border-color:var(--accent2)}
 .rename{display:flex;gap:6px;margin-bottom:4px}
 .rename input{padding:4px 8px}
+.player video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.player video ~ .play{display:none}
+body.live .example{display:none}
+.modetag{font-weight:600}
+body.live .modetag{color:var(--ok)}
+#jobs{display:flex;flex-direction:column;gap:6px;margin-top:auto;margin-bottom:10px}
+#jobs:empty{display:none}
+.jobrow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}
+.jobrow b{display:block;font-size:12px}
+.jobrow span{color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jobrow button{font-size:11px;color:var(--bad);margin-top:4px}
+.conn{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.conn .panel h3{font-size:16px;margin-bottom:8px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--dim)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+code.cmd{display:block;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:12px;margin:6px 0;user-select:all;overflow-x:auto}
+.form{display:flex;flex-direction:column;gap:10px}
+.form .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;align-items:center;gap:8px;font-size:13px}
+ol.steps-list{margin:6px 0 0;padding-left:18px;color:var(--muted)}
+ol.steps-list li{margin:4px 0}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -195,7 +216,7 @@ a.title-link:hover{text-decoration:underline}
 </style>
 </head>
 <body>
-<header class="titlebar"><div class="brand"><i></i>Viral Studio</div><span class="sp"></span><span>Prototype · example data</span></header>
+<header class="titlebar"><div class="brand"><i></i>Viral Studio</div><span class="sp"></span><span class="modetag" id="modelabel">Example data</span></header>
 <div class="app">
   <nav class="rail" aria-label="Sections">
     <div class="grp">Find</div>
@@ -208,6 +229,8 @@ a.title-link:hover{text-decoration:underline}
     <div class="grp">Library &amp; posting</div>
     <button class="nav" data-view="library"><span class="n"></span>Finished clips</button>
     <button class="nav" data-view="schedule"><span class="n"></span>Schedule<span class="soon">later</span></button>
+    <button class="nav" data-view="connection"><span class="n"></span><span class="dot" id="ccdot"></span>Connection</button>
+    <div id="jobs"></div>
     <div class="rail-foot">Higgsfield credits today<b id="credits">0</b><button class="btn" id="reset" style="margin-top:10px;width:100%">Reset example data</button></div>
   </nav>
   <main id="main"></main>
@@ -258,9 +281,16 @@ function seed(){return{
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
   ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null}
 }}
-let S=seed();
-try{const s=JSON.parse(localStorage.getItem("vs3")||"null");if(s&&s.v===3){S=s.s;S.ui={...seed().ui}}}catch(e){}
-const save=()=>{try{localStorage.setItem("vs3",JSON.stringify({v:3,s:S}))}catch(e){}};
+let MODE=(()=>{try{return localStorage.getItem("vs-mode")||"example"}catch(e){return "example"}})();
+const KEY=()=>MODE==="live"?"vs-live":"vs3";
+function seedLive(){const s=seed();s.finds=[];s.products=[];s.gens=[];s.credits=0;return s}
+function load(){let s=MODE==="live"?seedLive():seed();try{const x=JSON.parse(localStorage.getItem(KEY())||"null");if(x&&x.v===3){s=x.s;s.ui={...seed().ui}}}catch(e){}return s}
+let S=load();
+const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify({v:3,s:S}))}catch(e){}};
+let SETTINGS=null,WS="",CC={checked:false,ok:false,version:""};
+const JOBS={};
+const media=pth=>!pth?"":/^(https?:|file:|blob:|data:|img\/)/.test(pth)?pth:"file:///"+(WS.replace(/\\/g,"/")+"/"+pth).replace(/^\/+/,"");
+const vmedia=o=>o.video?`<video src="${esc(media(o.video))}" muted loop playsinline controls preload="metadata"></video>`:"";
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -311,7 +341,7 @@ my(){
   </button>`}).join("")}</div>`;
 },
 product(p){
-  const kitItem=(k,label,art,cls="")=>{const st=p.kit[k];return `<div class="asset ${cls}"><div class="art ${k==="cover"?"wide":"sq"}" style="background:${st==="todo"?"var(--panel2)":"var(--panel2)"}">${st==="todo"?'<span class="note">Not generated</span>':st==="gen"?'<span class="scrolling" style="font-size:12px"><span class="spin"></span>Generating</span>':art}</div>
+  const kitItem=(k,label,art,cls="")=>{const st=p.kit[k];return `<div class="asset ${cls}"><div class="art ${k==="cover"?"wide":"sq"}" style="background:${st==="todo"?"var(--panel2)":"var(--panel2)"}">${st==="todo"?'<span class="note">Not generated</span>':st==="gen"?'<span class="scrolling" style="font-size:12px"><span class="spin"></span>Generating</span>':(p.art&&p.art[k]?`<img src="${esc(media(p.art[k]))}" alt="" style="width:100%;height:100%;object-fit:cover">`:art)}</div>
     <div class="row" style="justify-content:space-between"><b style="font-size:13px">${label}</b>${st==="ok"?'<span class="pill ok">Approved</span>':st==="pending"?'<span class="pill warn">Needs your OK</span>':""}</div>
     ${!p.name?'<div class="note">Pick a name first</div>':st==="todo"?`<button class="btn" data-a="kitgen" data-k="${k}">Generate</button>`:st==="pending"?`<div class="row fill"><button class="btn" data-a="kitgen" data-k="${k}">Redo</button><button class="btn ok" data-a="kitok" data-k="${k}">Approve</button></div>`:st==="ok"?`<button class="btn" data-a="kitgen" data-k="${k}">Regenerate</button>`:""}</div>`};
   const mono=`<span class="mono" style="font-size:40px;background:${p.color};width:70%;height:70%;border-radius:22%;display:grid;place-items:center">${initials(p.name)}</span>`;
@@ -335,7 +365,7 @@ product(p){
       <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
     </section>
     <section class="step panel"><div class="step-h"><h3>Final videos</h3><span class="note" style="margin-left:auto">Approved and upscaled hook + reveal combos</span></div>
-      ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}"><span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
+      ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
     </section>
   </div>
   <aside class="side"><div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Socials</dt><dd>${esc(p.handles||"—")}</dd></dl></div>
@@ -372,7 +402,7 @@ finals(){
   const notIn=list.filter(g=>!g.drive).length;
   return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
   <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
-  ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}"><span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
+  ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
     <div class="lab"><b>${esc(p?.name||"")}</b>${esc(g.hook)} + ${esc(g.reveal)}</div>
     ${g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
 },
@@ -382,6 +412,43 @@ library(){
   <div class="tabs"><button class="chip" aria-pressed="${t==="hooks"}" data-a="tab" data-v="hooks">Hooks (${S.hooks.length})</button><button class="chip" aria-pressed="${t==="reveals"}" data-a="tab" data-v="reveals">Reveals (${S.reveals.length})</button></div>
   ${S.ui.addOpen?`<form class="addform panel" id="addform"><label class="f">Name<input type="text" id="an" required placeholder="${t==="hooks"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label><label class="f">Best product types<input type="text" id="af" placeholder="e.g. Gadgets, toys"></label><label class="f full">How it works<textarea id="ad" placeholder="Describe the shots"></textarea></label><label class="f full">Clip<input type="file" id="aclip" accept="video/*"></label><div class="row full"><button class="btn" type="button" data-a="addclose">Cancel</button><button class="btn pri" type="submit">Save</button></div></form>`:""}
   <div class="lgrid">${list.map(x=>libCard(x,kind,"lib")).join("")}</div>`;
+},
+connection(){
+  const inApp=!!window.studio,s=SETTINGS||{};
+  const ping=S.ui.ping;
+  return `<div class="head"><div><h1>Connection</h1><p class="sub">Viral Studio uses Claude Code on this PC to do the real work. When Live mode is on, every button starts a Claude Code job in the background with your Claude subscription.</p></div></div>
+  ${!inApp?'<div class="panel" style="margin-bottom:16px;color:var(--warn)">You are viewing this outside the desktop app, so Live mode is off.</div>':""}
+  <div class="conn">
+    <section class="panel"><h3>Mode</h3>
+      <div class="opts"><button class="chip" aria-pressed="${MODE==="example"}" data-a="mode" data-v="example">Example data</button><button class="chip" aria-pressed="${MODE==="live"}" data-a="mode" data-v="live" ${inApp?"":"disabled"}>Live · Claude Code</button></div>
+      <p class="note" style="margin-top:8px">Example data and Live data are kept separate. Switching doesn't delete either.</p>
+    </section>
+    <section class="panel"><h3><span class="dot ${CC.checked?(CC.ok?"ok":"bad"):""}"></span>Claude Code</h3>
+      ${!CC.checked?'<p class="note">Checking…</p>':CC.ok?`<p>Found: <b>${esc(CC.version)}</b></p>`:`<p>Claude Code's command line isn't installed on this PC (the desktop app alone isn't enough).</p>
+        <ol class="steps-list"><li>Open <b>PowerShell</b> (Start menu → type PowerShell).</li><li>Paste this and press Enter:<code class="cmd">irm https://claude.ai/install.ps1 | iex</code></li><li>Close PowerShell, open it again, type <code class="cmd">claude</code> and sign in with your Claude account.</li><li>Come back here and press Check again.</li></ol>`}
+      <div class="row" style="margin-top:10px"><button class="btn" data-a="cccheck">Check again</button><button class="btn pri" data-a="ping" ${CC.ok?"":"disabled"}>Test connection</button></div>
+      ${ping?`<div class="demand" style="margin-top:10px">${ping.running?'<span class="scrolling"><span class="spin"></span>Asking Claude Code which tools it has…</span>':ping.ok?`<div><span class="dot ${ping.higgsfield?"ok":"bad"}"></span>Higgsfield ${ping.higgsfield?"connected":"not found"}</div><div><span class="dot ${ping.chrome?"ok":"bad"}"></span>Claude in Chrome ${ping.chrome?"connected":"not found"}</div><div><span class="dot ${ping.drive?"ok":"bad"}"></span>Google Drive ${ping.drive?"connected":"not found"}</div>`:`<span style="color:var(--bad)">${esc(ping.error||"Test failed")}</span>`}</div>`:""}
+    </section>
+    <section class="panel"><h3>Settings</h3>
+      <form class="form" id="setform">
+        <div class="two"><label class="f">Claude Code command<input type="text" id="st-cmd" value="${esc(s.claudeCommand||"claude")}"></label>
+        <label class="f">Permission mode<select id="st-perm">${["auto","acceptEdits","dontAsk","bypassPermissions"].map(m=>`<option ${m===s.permissionMode?"selected":""}>${m}</option>`).join("")}</select></label></div>
+        <label class="f">Always-allowed tools (space separated)<input type="text" id="st-tools" value="${esc(s.allowedTools||"")}"></label>
+        <div class="two"><label class="f">Max credits per video<input type="text" inputmode="numeric" id="st-max" value="${esc(s.maxCreditsPerVideo||150)}"></label>
+        <label class="check" style="margin-top:18px"><input type="checkbox" id="st-chrome" ${s.useChrome!==false?"checked":""}>Use Claude in Chrome for scrolling</label></div>
+        <div class="row"><button class="btn pri" type="submit" ${inApp?"":"disabled"}>Save settings</button><button class="btn" type="button" data-a="openws" ${inApp?"":"disabled"}>Open work folder</button></div>
+        <p class="note">Work folder: ${esc(WS||"—")}</p>
+      </form>
+    </section>
+    <section class="panel"><h3>One-time setup</h3>
+      <ol class="steps-list">
+        <li><b>Higgsfield in Claude Code:</b> open PowerShell, run <code class="cmd">claude</code>, then type <code class="cmd">/mcp</code> and check Higgsfield is listed. If not, tell Claude in this chat and I'll give you the exact command.</li>
+        <li><b>Claude in Chrome:</b> install the Claude in Chrome extension in the Chrome where your burner Instagram is logged in, and sign in with the same Claude account.</li>
+        <li><b>Google Drive:</b> coming next.</li>
+        <li>Press <b>Test connection</b>.</li>
+      </ol>
+    </section>
+  </div>`;
 },
 schedule(){
   return `<div class="head"><div><h1>Schedule</h1><p class="sub">Coming later.</p></div></div>
@@ -400,40 +467,106 @@ function libCard(x,kind,mode){
       <div class="tools">${mode==="pick"?`<button class="btn ${sel?"cy":""}" data-a="pick${kind}" data-id="${x.id}">${sel?"Selected ✓":"Select"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${mode==="lib"?`<button class="btn bad" data-a="libdel" data-id="${x.id}">Delete</button>`:""}</div>
     </div></div>`;
 }
+function jobsUI(){
+  const el=$("#jobs");if(!el)return;
+  el.innerHTML=Object.entries(JOBS).map(([id,j])=>`<div class="jobrow"><b>${esc(j.label)}</b><span>${esc(j.progress)}</span><button data-cancel="${id}">Stop</button></div>`).join("");
+}
+document.addEventListener("click",e=>{const c=e.target.closest("[data-cancel]");if(c&&window.studio)window.studio.cancelJob(c.dataset.cancel)});
+function runJob(type,label,input,onDone){
+  const id=type+"-"+Date.now().toString(36)+"-"+uid();
+  JOBS[id]={type,label,progress:"Starting…",onDone};
+  window.studio.startJob({id,type,input}).catch(err=>{delete JOBS[id];onDone({ok:false,error:String(err)});render()});
+  jobsUI();return id;
+}
+if(window.studio)window.studio.onJobEvent(m=>{
+  const j=JOBS[m.id];if(!j)return;
+  if(m.kind==="progress"){j.progress=m.text;jobsUI();return}
+  delete JOBS[m.id];
+  const r=m.result||{ok:false,error:"No result"};
+  try{j.onDone(r)}catch(err){console.error(err)}
+  if(!r.ok)toast(r.error||"Job failed");
+  render();
+});
+function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche},r=>{if(r.ok)p.nameOpts=r.names||[]})}
+function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box].filter(Boolean).map(x=>/^https?:/.test(x)?x:x)}
+const LIVE={
+  scroll(){S.ui.scrolling=true;runJob("scroll","Scrolling Instagram",{criteria:S.criteria,count:5},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
+  stopscroll(){Object.keys(JOBS).filter(k=>JOBS[k].type==="scroll").forEach(k=>window.studio.cancelJob(k));S.ui.scrolling=false},
+  morenames(){askNames(P(S.ui.prod))},
+  kitgen(b){const p=P(S.ui.prod),k=b.dataset.k;p.kit[k]="gen";runJob("brandkit",`${k} · ${p.name}`,{asset:k,name:p.name,product:p.from,variation:p.variation,color:p.color,refs:k==="collage"?[]:refsOf(p)},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"})},
+  generate(){
+    const c=S.concept,pr=P(c.pid),hk=i=>S.hooks.find(x=>x.id===i),rv=i=>S.reveals.find(x=>x.id===i);let n=0;
+    c.hooks.forEach(h=>c.reveals.forEach(rId=>{
+      const H=hk(h),R=rv(rId),engine=c.engines[h+"|"+rId]||"Seedance";
+      const g={id:uid(),pid:c.pid,hook:H.name,reveal:R.name,engine,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
+      S.gens.unshift(g);n++;
+      g.jobId=runJob("generate",`${H.name} + ${R.name}`,{product:{name:pr.name,from:pr.from,refs:refsOf(pr)},hook:{name:H.name,desc:H.desc},reveal:{name:R.name,desc:R.desc},engine,source:pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
+        if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});S.credits+=r.credits||0}else S.gens=S.gens.filter(x=>x!==g)});
+    }));
+    S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${n} video${n>1?"s":""}`);location.hash="generations";
+  },
+  fixsend(b,id){const g=S.gens.find(x=>x.id===id);const note=$("#fx").value.trim();if(!note){toast("Write what should change");return}const pr=P(g.pid);g.fix=note;g.st="fixing";S.ui.fixOpen=null;
+    g.jobId=runJob("fix",`Fix · ${g.hook}`,{product:{name:pr.name,from:pr.from,refs:refsOf(pr)},hook:{name:g.hook},reveal:{name:g.reveal},engine:g.engine,source:pr.url||"",note,previous_prompt:g.prompt||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});S.credits+=r.credits||0}else g.st="ready"})},
+  approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";
+    runJob("upscale",`Upscale · ${g.hook}`,{job_id:g.job_id},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.drive=false}else g.st="ready"})},
+  drive(b,id){const g=S.gens.find(x=>x.id===id),pr=P(g.pid);runJob("drive",`Drive · ${g.hook}`,{video:g.video,product:pr?pr.name:"",name:`${g.hook} + ${g.reveal}`},r=>{if(r.ok){g.drive=true;g.drive_url=r.drive_url}})},
+  driveall(){S.gens.filter(g=>g.st==="final"&&!g.drive).forEach(g=>LIVE.drive(null,g.id))}
+};
+const CONN={
+  mode(b){const m=b.dataset.v;if(m===MODE)return;save();MODE=m;try{localStorage.setItem("vs-mode",m)}catch(e){}S=load();toast(m==="live"?"Live mode: buttons now run Claude Code":"Showing example data")},
+  async cccheck(){CC={checked:false};render();CC={checked:true,...await window.studio.checkClaude()};render()},
+  ping(){S.ui.ping={running:true};runJob("ping","Connection test",{},r=>{S.ui.ping=r})},
+  openws(){window.studio.openWorkspace()}
+};
+document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e.preventDefault();
+  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked});
+  toast("Settings saved");render()});
+async function boot(){
+  if(!window.studio){CC={checked:true,ok:false,version:""};if(MODE==="live"){MODE="example";S=load()}render();return}
+  try{SETTINGS=await window.studio.getSettings();WS=SETTINGS.workspace||""}catch(e){}
+  render();
+  try{CC={checked:true,...await window.studio.checkClaude()}}catch(e){CC={checked:true,ok:false}}
+  render();
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
   if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
-  else act=`<div class="note">${g.st==="generating"?"About 3 min left":g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${bg(g)}">${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div>${act}</div>`;
+  else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
+  return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div>${act}</div>`;
 }
 
 function route(){const h=(location.hash||"#products").slice(1);return V[h]&&h!=="product"?h:"products"}
 function render(){
   const v=route();
   document.querySelectorAll(".nav").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v?"page":"false"));
-  $("#main").innerHTML=V[v]();counts();save();
+  document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
+  $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
+  $("#main").innerHTML=V[v]();counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
 function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
-function setVar(p,v){p.variation=v;p.nameOpts=[];p.name="";Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Variation set. Suggesting names…");later(900,()=>{p.nameOpts=suggest(p)});render()}
+function setVar(p,v){p.variation=v;p.nameOpts=[];p.name="";Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Variation set. Suggesting names…");(MODE==="live"?askNames(p):later(900,()=>{p.nameOpts=suggest(p)}));render()}
 function suggest(p){const base=["Nova","Glow","Pulse","Orbit","Loop","Spark","Peak","Haven","Bolt","Echo"],end=["Beam","Lab","Play","Box","Go","Kit","Pro","Mate"];return [...Array(4)].map(()=>base[Math.random()*base.length|0]+end[Math.random()*end.length|0])}
 
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{S.ui.prod=null;location.hash=b.dataset.view;render()});
 addEventListener("hashchange",render);
-$("#reset").onclick=()=>{try{localStorage.removeItem("vs3")}catch(e){}S=seed();render()};
+$("#reset").onclick=()=>{try{localStorage.removeItem(KEY())}catch(e){}S=load();render()};
 
 $("#main").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b)return;
   const a=b.dataset.a,id=b.dataset.id,gen=S.gens.find(g=>g.id===id),p=S.ui.prod&&P(S.ui.prod);
+  if(CONN[a]){CONN[a](b,id);render();return}
+  if(MODE==="live"&&LIVE[a]){if(!window.studio){toast("Live mode only works in the desktop app");return}LIVE[a](b,id);render();return}
   switch(a){
     case"scroll":S.ui.scrolling=true;later(3500,()=>{S.ui.scrolling=false;const c=S.criteria;S.finds.unshift({id:uid(),img:"",bg:G("#103a40","#0b0b10"),handle:"mugmagic.shop",posts:Math.min(c.maxPosts,9),followers:Math.max(c.minFollowers,3100).toLocaleString("en-US"),views:"2.2M",x:Math.max(c.minX,183)+"×",likes:"130K",comments:"1.9K",posted:"today",product:"Self-stirring mug",supplier:"AliExpress · $6.40",hook:"My coworkers think I'm a wizard",reveal:"Press button, whirlpool forms",demand:"High",buyPct:44,quotes:["Where do I get one?","Perfect gift for my dad","Link in bio?"]});toast("Found 1 product that passes your rules")});break;
     case"stopscroll":S.ui.scrolling=false;break;
     case"skip":S.finds=S.finds.filter(f=>f.id!==id);toast("Skipped. I'll find a replacement on the next scroll");break;
-    case"pick":{const f=S.finds.find(x=>x.id===id);S.finds=S.finds.filter(x=>x.id!==id);const np={id:uid(),from:f.product,img:f.img,bg:f.bg,variation:"",niche:"",nameOpts:[],name:"",color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:f.supplier,handles:""};S.products.unshift(np);toast("Added to My products");break}
+    case"pick":{const f=S.finds.find(x=>x.id===id);S.finds=S.finds.filter(x=>x.id!==id);const np={id:uid(),from:f.product,url:f.url||"",img:f.img,bg:f.bg,variation:"",niche:"",nameOpts:[],name:"",color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:f.supplier,handles:""};S.products.unshift(np);toast("Added to My products");break}
     case"open":S.ui.prod=id;location.hash="my";break;
     case"closeprod":S.ui.prod=null;break;
     case"delprod":S.products=S.products.filter(x=>x.id!==id);S.gens=S.gens.filter(g=>g.pid!==id);S.ui.prod=null;toast("Product removed");break;
@@ -479,7 +612,7 @@ $("#main").addEventListener("change",e=>{
   if(t.id&&t.id.startsWith("cr-"))save();
 });
 $("#main").addEventListener("keydown",e=>{if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
-render();
+boot();
 </script>
 </body>
 </html>

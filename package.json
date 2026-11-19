@@ -1,7 +1,7 @@
 {
   "name": "viral-studio",
   "productName": "Viral Studio",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Daily viral-video pipeline: concepts, review, scheduling and viral finds.",
   "main": "main.js",
   "private": true,
@@ -16,6 +16,7 @@
       "main.js",
       "preload.js",
       "app/**/*",
+      "worker/**/*",
       "build/icon.png"
     ],
     "directories": {
