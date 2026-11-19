@@ -281,7 +281,7 @@ function seed(){return{
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
   ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null}
 }}
-let MODE=(()=>{try{return localStorage.getItem("vs-mode")||"example"}catch(e){return "example"}})();
+let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
 function seedLive(){const s=seed();s.finds=[];s.products=[];s.gens=[];s.credits=0;return s}
 function load(){let s=MODE==="live"?seedLive():seed();try{const x=JSON.parse(localStorage.getItem(KEY())||"null");if(x&&x.v===3){s=x.s;s.ui={...seed().ui}}}catch(e){}return s}
@@ -517,7 +517,8 @@ const CONN={
   mode(b){const m=b.dataset.v;if(m===MODE)return;save();MODE=m;try{localStorage.setItem("vs-mode",m)}catch(e){}S=load();toast(m==="live"?"Live mode: buttons now run Claude Code":"Showing example data")},
   async cccheck(){CC={checked:false};render();CC={checked:true,...await window.studio.checkClaude()};render()},
   ping(){S.ui.ping={running:true};runJob("ping","Connection test",{},r=>{S.ui.ping=r})},
-  openws(){window.studio.openWorkspace()}
+  openws(){window.studio.openWorkspace()},
+  goconn(){location.hash="connection"}
 };
 document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e.preventDefault();
   SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked});
@@ -545,7 +546,8 @@ function render(){
   document.querySelectorAll(".nav").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v?"page":"false"));
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
-  $("#main").innerHTML=V[v]();counts();save();jobsUI();
+  const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
+  $("#main").innerHTML=warn+V[v]();counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
