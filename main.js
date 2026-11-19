@@ -44,13 +44,29 @@ function prepareWorkspace() {
 // ---------- running Claude Code ----------
 const running = new Map(); // job id -> child process
 
+function resolveClaude() {
+  const cmd = readSettings().claudeCommand || 'claude';
+  if (cmd !== 'claude' || process.platform !== 'win32') return cmd;
+  const home = process.env.USERPROFILE || '';
+  const appdata = process.env.APPDATA || '';
+  const local = process.env.LOCALAPPDATA || '';
+  const candidates = [
+    path.join(home, '.local', 'bin', 'claude.exe'),
+    path.join(appdata, 'npm', 'claude.cmd'),
+    path.join(local, 'Programs', 'claude', 'claude.exe'),
+    path.join(local, 'AnthropicClaude', 'claude.exe')
+  ];
+  for (const c of candidates) { try { if (fs.existsSync(c)) return c; } catch (_) {} }
+  return cmd;
+}
+
 function quoteWin(a) { return /[\s"&|<>^()]/.test(a) ? '"' + a.replace(/"/g, '\\"') + '"' : a; }
 
 function runClaude(args, input, onLine) {
   const s = readSettings();
   const isWin = process.platform === 'win32';
   // On Windows the CLI is often a .cmd shim, which needs a shell to start.
-  const child = spawn(s.claudeCommand, isWin ? args.map(quoteWin) : args, {
+  const child = spawn(isWin ? quoteWin(resolveClaude()) : resolveClaude(), isWin ? args.map(quoteWin) : args, {
     cwd: ws(), shell: isWin, windowsHide: true, env: { ...process.env }
   });
   let buf = '';
@@ -87,7 +103,7 @@ ipcMain.handle('cc:check', async () => {
     const finish = (r) => { if (!done) { done = true; resolve(r); } };
     try {
       const isWin = process.platform === 'win32';
-      const child = spawn(s.claudeCommand, ['--version'], { shell: isWin, windowsHide: true });
+      const child = spawn(isWin ? quoteWin(resolveClaude()) : resolveClaude(), ['--version'], { shell: isWin, windowsHide: true });
       child.stdout.on('data', (d) => { out += d.toString(); });
       child.on('error', () => finish({ ok: false }));
       child.on('close', (code) => finish(code === 0 && out ? { ok: true, version: out.trim() } : { ok: false }));
