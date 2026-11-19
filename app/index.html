@@ -165,6 +165,27 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .addform{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .addform .full{grid-column:1/-1}
 
+.crit{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:end;margin-bottom:18px}
+.crit input,.crit select{font-family:var(--mono)}
+.checks{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ck{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);color:var(--ok)}
+.demand{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);font-size:13px}
+.demand .lvl{font-weight:700}
+.demand .lvl.High{color:var(--ok)} .demand .lvl.Medium{color:var(--warn)} .demand .lvl.Low{color:var(--bad)}
+.demand q{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+a.player{display:block;color:inherit}
+a.title-link{color:inherit;text-decoration:none}
+a.title-link:hover{text-decoration:underline}
+.ext{font-size:11px;color:var(--accent2);position:absolute;top:8px;right:8px;z-index:1;background:rgba(0,0,0,.65);padding:1px 6px;border-radius:5px}
+.lcard{position:relative}
+.lcard .tools{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.lcard .tools .btn{padding:3px 9px;font-size:11px;cursor:pointer}
+.lcard .tools input[type=file]{display:none}
+.lcard video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.lcard .sel{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:2px solid var(--muted);background:transparent}
+.lcard[aria-pressed="true"] .sel{background:var(--accent2);border-color:var(--accent2)}
+.rename{display:flex;gap:6px;margin-bottom:4px}
+.rename input{padding:4px 8px}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -185,7 +206,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     <button class="nav" data-view="generations"><span class="n">4</span>Generations<span class="cnt" id="c-gen"></span></button>
     <button class="nav" data-view="finals"><span class="n">5</span>Finals<span class="cnt" id="c-fin"></span></button>
     <div class="grp">Library &amp; posting</div>
-    <button class="nav" data-view="library"><span class="n"></span>Hooks &amp; reveals</button>
+    <button class="nav" data-view="library"><span class="n"></span>Finished clips</button>
     <button class="nav" data-view="schedule"><span class="n"></span>Schedule<span class="soon">later</span></button>
     <div class="rail-foot">Higgsfield credits today<b id="credits">0</b><button class="btn" id="reset" style="margin-top:10px;width:100%">Reset example data</button></div>
   </nav>
@@ -200,12 +221,13 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 
 function seed(){return{
   credits:216,
+  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium"},
   finds:[
-    {id:"f1",img:IMG.v2,handle:"@cabin.family.fun",followers:"18K",views:"8.4M",x:"466×",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",supplier:"AliExpress · $21.40",hook:"Dad snatches the kids' screens, then reveals the box",reveal:"Unbox → projector lights up the wall → family plays",link:"instagram.com/reel/…"},
-    {id:"f2",img:"",bg:G("#3a1550","#0d2a4a"),handle:"@glowroomco",followers:"42K",views:"5.2M",x:"124×",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",supplier:"AliExpress · $9.80",hook:"Girlfriend turns off the light",reveal:"Room turns into a galaxy, slow pan",link:"instagram.com/reel/…"},
-    {id:"f3",img:"",bg:G("#4a2a10","#1a1a1a"),handle:"@relaxlabs",followers:"9K",views:"3.9M",x:"433×",likes:"201K",comments:"4.8K",posted:"3 days ago",product:"Mini massage gun",supplier:"AliExpress · $12.10",hook:"Grandpa tries it for the first time",reveal:"Close-up of muscle ripple + his face",link:"instagram.com/reel/…"},
-    {id:"f4",img:"",bg:G("#12402a","#0b0b10"),handle:"@garagehacks",followers:"61K",views:"2.7M",x:"44×",likes:"150K",comments:"2.2K",posted:"today",product:"Magnetic phone car mount",supplier:"AliExpress · $3.20",hook:"\"Stop buying cheap mounts\"",reveal:"Pothole test, phone doesn't move",link:"instagram.com/reel/…"},
-    {id:"f5",img:"",bg:G("#40210f","#2a0f2a"),handle:"@cozycorner.home",followers:"25K",views:"1.9M",x:"76×",likes:"98K",comments:"1.4K",posted:"today",product:"Heated desk pad",supplier:"AliExpress · $14.90",hook:"POV: your office is freezing",reveal:"Hands on pad, steam of coffee, smile",link:"instagram.com/reel/…"}
+    {id:"f1",img:IMG.v2,handle:"cabin.family.fun",posts:11,followers:"18K",views:"8.4M",x:"466×",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",supplier:"AliExpress · $21.40",hook:"Dad snatches the kids' screens, then reveals the box",reveal:"Unbox → projector lights up the wall → family plays",demand:"High",buyPct:58,quotes:["Where can I buy this??","Need this for my boys for Christmas","Link pls 🙏"]},
+    {id:"f2",img:"",bg:G("#3a1550","#0d2a4a"),handle:"glowroomco",posts:17,followers:"4.2K",views:"5.2M",x:"124×",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",supplier:"AliExpress · $9.80",hook:"Girlfriend turns off the light",reveal:"Room turns into a galaxy, slow pan",demand:"High",buyPct:41,quotes:["What's the name of it?","Ordered 2 already","My daughter would love this"]},
+    {id:"f3",img:"",bg:G("#4a2a10","#1a1a1a"),handle:"relaxlabs",posts:6,followers:"900",views:"3.9M",x:"433×",likes:"201K",comments:"4.8K",posted:"3 days ago",product:"Mini massage gun",supplier:"AliExpress · $12.10",hook:"Grandpa tries it for the first time",reveal:"Close-up of muscle ripple + his face",demand:"Medium",buyPct:19,quotes:["Haha grandpa is a legend","Does it work on back pain?","Mine broke after a week"]},
+    {id:"f4",img:"",bg:G("#12402a","#0b0b10"),handle:"garagehacks.co",posts:19,followers:"6.1K",views:"2.7M",x:"44×",likes:"150K",comments:"2.2K",posted:"today",product:"Magnetic phone car mount",supplier:"AliExpress · $3.20",hook:"Stop buying cheap mounts",reveal:"Pothole test, phone doesn't move",demand:"Medium",buyPct:22,quotes:["Does it fit iPhone 17?","Link?","Mine falls off in summer heat"]},
+    {id:"f5",img:"",bg:G("#40210f","#2a0f2a"),handle:"cozycorner.home",posts:14,followers:"2.5K",views:"1.9M",x:"76×",likes:"98K",comments:"1.4K",posted:"today",product:"Heated desk pad",supplier:"AliExpress · $14.90",hook:"POV: your office is freezing",reveal:"Hands on pad, steam of coffee, smile",demand:"High",buyPct:47,quotes:["I NEED this at work","How much is it?","Buying one for my mom"]}
   ],
   products:[
     {id:"p1",from:"Projector hunting game",img:IMG.v2,variation:"Same product, rebrand",niche:"Toys · Christmas gifts",nameOpts:["WildBeam","HuntGlow","TrailShot Arcade","Buckshot Beam"],name:"WildBeam",color:"#d9480f",kit:{logo:"ok",cover:"ok",collage:"ok",box:"ok"},supplier:"AliExpress · $21.40",handles:"@wildbeam.game"},
@@ -234,11 +256,11 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null}
 }}
 let S=seed();
-try{const s=JSON.parse(localStorage.getItem("vs2")||"null");if(s&&s.v===2){S=s.s;S.ui={...seed().ui}}}catch(e){}
-const save=()=>{try{localStorage.setItem("vs2",JSON.stringify({v:2,s:S}))}catch(e){}};
+try{const s=JSON.parse(localStorage.getItem("vs3")||"null");if(s&&s.v===3){S=s.s;S.ui={...seed().ui}}}catch(e){}
+const save=()=>{try{localStorage.setItem("vs3",JSON.stringify({v:3,s:S}))}catch(e){}};
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -260,14 +282,21 @@ function counts(){
 
 const V={
 products(){
-  return `<div class="head"><div><h1>Products</h1><p class="sub">Viral products I found scrolling your burner Instagram. Pick the ones worth selling. Skipped ones get replaced with a new find.</p></div><span class="example">Example data</span></div>
-  <div class="scrollbar panel">
-    ${S.ui.scrolling?`<div class="scrolling"><span class="spin"></span>Scrolling Instagram Reels in your Chrome… looking for outliers (10×+ the account's usual views)</div><button class="btn" data-a="stopscroll">Stop</button>`
-    :`<div><b>Ready to scroll</b><div class="note">Uses Claude in Chrome on your PC with your burner account logged in. Finds 5 outlier reels per run.</div></div><button class="btn pri big" data-a="scroll">Start scrolling</button>`}
-  </div>
-  ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><div class="player" style="${bg(f)}"><span class="play"></span></div>
-    <div style="min-width:0"><div class="eyebrow">${esc(f.handle)} · ${esc(f.followers)} followers · ${esc(f.posted)}</div><h3>${esc(f.product)}</h3><div class="note">${esc(f.supplier)} · ${esc(f.link)}</div>
-      <dl class="why"><dt>Hook</dt><dd>${esc(f.hook)}</dd><dt>Reveal</dt><dd>${esc(f.reveal)}</dd></dl></div>
+  const c=S.criteria;
+  return `<div class="head"><div><h1>Products</h1><p class="sub">Viral products from your burner Instagram that pass your rules. Click a video to open it on Instagram. Pick the ones worth selling. Skipped ones get replaced on the next scroll.</p></div><span class="example">Example data</span></div>
+  <form class="crit panel" id="critform">
+    <label class="f">Account has at most (posts)<input type="text" inputmode="numeric" id="cr-posts" value="${c.maxPosts}"></label>
+    <label class="f">Account has at least (followers)<input type="text" inputmode="numeric" id="cr-fol" value="${c.minFollowers}"></label>
+    <label class="f">Views vs account's usual (at least)<input type="text" inputmode="numeric" id="cr-x" value="${c.minX}×"></label>
+    <label class="f">Buying demand in comments (at least)<select id="cr-dem">${["Low","Medium","High"].map(v=>`<option ${v===c.demand?"selected":""}>${v}</option>`).join("")}</select></label>
+    ${S.ui.scrolling?`<button class="btn" type="button" data-a="stopscroll">Stop</button>`:`<button class="btn pri big" type="button" data-a="scroll">Start scrolling</button>`}
+  </form>
+  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Checking each account: ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
+  ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><a class="player" href="${ig(f)}" target="_blank" rel="noopener" style="${bg(f)}" title="Open on Instagram"><span class="play"></span><span class="ext">IG ↗</span></a>
+    <div style="min-width:0"><div class="eyebrow">@${esc(f.handle)} · ${esc(f.posted)}</div><h3><a class="title-link" href="${ig(f)}" target="_blank" rel="noopener">${esc(f.product)}</a></h3><div class="note">${esc(f.supplier)}</div>
+      <div class="checks"><span class="ck">${f.posts} posts</span><span class="ck">${esc(f.followers)} followers</span><span class="ck">${f.x} usual views</span></div>
+      <dl class="why"><dt>Hook</dt><dd>${esc(f.hook)}</dd><dt>Reveal</dt><dd>${esc(f.reveal)}</dd></dl>
+      <div class="demand">Demand: <span class="lvl ${f.demand}">${f.demand}</span> · ${f.buyPct}% of comments want to buy it${f.quotes.map(q=>`<q>${esc(q)}</q>`).join("")}</div></div>
     <div class="act"><div class="nums"><div class="num hl"><small>vs usual</small><b>${f.x}</b></div><div class="num"><small>Views</small><b>${f.views}</b></div><div class="num"><small>Likes</small><b>${f.likes}</b></div><div class="num"><small>Comments</small><b>${f.comments}</b></div></div>
       <div class="row fill"><button class="btn bad" data-a="skip" data-id="${f.id}">Skip</button><button class="btn pri" data-a="pick" data-id="${f.id}">Pick</button></div></div>
   </article>`).join(""):'<div class="empty">No finds right now. Press Start scrolling.</div>'}`;
@@ -320,13 +349,13 @@ concepts(){
   const p=P(c.pid);
   const combos=[];c.hooks.forEach(h=>c.reveals.forEach(r=>combos.push({h,r,key:h+"|"+r})));
   const hk=id=>S.hooks.find(x=>x.id===id),rv=id=>S.reveals.find(x=>x.id===id);
-  const card=(x,kind,sel)=>`<button class="lcard" aria-pressed="${sel}" data-a="pick${kind}" data-id="${x.id}"><div class="player" style="${bg(x)}"></div><div><h4>${esc(x.name)}</h4><p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div></div></button>`;
+  const card=(x,kind)=>libCard(x,kind,"pick");
   return `<div class="head"><div><h1>Concepts</h1><p class="sub">Pick a product, then the hooks and reveals to recreate. Each hook + reveal pair becomes one video. Choose Seedance (built from scratch) or Genjutsu (our product swapped into the viral video) per pair.</p></div><span class="example">Example data</span></div>
   ${!ready.length?'<div class="empty">No product is ready yet. Finish a product\'s brand kit in My products first.</div>':`
   <section class="cstep"><h2><span class="k">1</span>Product</h2><div class="opts">${ready.map(x=>`<button class="chip" aria-pressed="${x.id===c.pid}" data-a="cprod" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div></section>
-  <section class="cstep"><h2><span class="k">2</span>Hooks <span class="note">${c.hooks.length} selected</span></h2><div class="lgrid">${S.hooks.map(h=>card(h,"hook",c.hooks.includes(h.id))).join("")}</div></section>
-  <section class="cstep"><h2><span class="k">3</span>Reveals <span class="note">${c.reveals.length} selected</span></h2><div class="lgrid">${S.reveals.map(r=>card(r,"rev",c.reveals.includes(r.id))).join("")}</div>
-    <p class="note">Need a new one? Add it in Hooks &amp; reveals.</p></section>
+  <section class="cstep"><h2><span class="k">2</span>Hooks <span class="note">${c.hooks.length} selected</span></h2><div class="lgrid">${S.hooks.map(h=>card(h,"hook")).join("")}</div></section>
+  <section class="cstep"><h2><span class="k">3</span>Reveals <span class="note">${c.reveals.length} selected</span></h2><div class="lgrid">${S.reveals.map(r=>card(r,"rev")).join("")}</div>
+    <p class="note">Need a new one? Add it in Finished clips.</p></section>
   <section class="cstep panel"><h2><span class="k">4</span>Videos to generate for ${esc(p.name)}</h2>
     ${combos.length?`<div class="combos">${combos.map(o=>{const e=c.engines[o.key]||"Seedance";return `<div class="combo"><div><b>${esc(hk(o.h).name)}</b> + ${esc(rv(o.r).name)}</div><span class="note">${e==="Seedance"?"length: I decide":"length: like source"}</span><div class="seg" role="group"><button aria-pressed="${e==="Seedance"}" data-a="eng" data-k="${o.key}" data-v="Seedance">Seedance</button><button aria-pressed="${e==="Genjutsu"}" data-a="eng" data-k="${o.key}" data-v="Genjutsu">Genjutsu</button></div><button class="btn bad" data-a="rmcombo" data-h="${o.h}" data-r="${o.r}" aria-label="Remove">✕</button></div>`}).join("")}</div>
     <div class="genbar"><span class="note">${combos.length} video${combos.length>1?"s":""} · about ${combos.length*72} credits · 1 take each · 480p, 9:16, sound on</span><button class="btn pri big" data-a="generate">Generate ${combos.length} video${combos.length>1?"s":""}</button></div>`:'<p class="note">Select at least one hook and one reveal.</p>'}
@@ -348,17 +377,29 @@ finals(){
     ${g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
 },
 library(){
-  const t=S.ui.libTab,list=t==="hooks"?S.hooks:S.reveals;
-  return `<div class="head"><div><h1>Hooks &amp; reveals</h1><p class="sub">Your library. Hooks are the first 2–3 seconds. Reveals are how the product is shown. Concepts combine one of each.</p></div><button class="btn pri" data-a="addopen">Add ${t==="hooks"?"hook":"reveal"}</button></div>
+  const t=S.ui.libTab,list=t==="hooks"?S.hooks:S.reveals,kind=t==="hooks"?"hook":"rev";
+  return `<div class="head"><div><h1>Finished clips</h1><p class="sub">Your hook clips (the first 2–3 seconds) and reveal clips (how the product is shown). Rename them and upload the clip for each. Concepts combine one hook with one reveal.</p></div><button class="btn pri" data-a="addopen">Add ${t==="hooks"?"hook":"reveal"}</button></div>
   <div class="tabs"><button class="chip" aria-pressed="${t==="hooks"}" data-a="tab" data-v="hooks">Hooks (${S.hooks.length})</button><button class="chip" aria-pressed="${t==="reveals"}" data-a="tab" data-v="reveals">Reveals (${S.reveals.length})</button></div>
-  ${S.ui.addOpen?`<form class="addform panel" id="addform"><label class="f">Name<input type="text" id="an" required placeholder="${t==="hooks"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label><label class="f">Best product types<input type="text" id="af" placeholder="e.g. Gadgets, toys"></label><label class="f full">How it works<textarea id="ad" placeholder="Describe the shots"></textarea></label><label class="f full">Example video link<input type="text" id="al" placeholder="instagram.com/reel/…"></label><div class="row full"><button class="btn" type="button" data-a="addclose">Cancel</button><button class="btn pri" type="submit">Save</button></div></form>`:""}
-  <div class="lgrid">${list.map(x=>`<div class="lcard" style="grid-template-columns:80px 1fr"><div class="player" style="${bg(x)};width:80px"><span class="play"></span></div><div><h4>${esc(x.name)}</h4><p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div><button class="btn bad" style="margin-top:8px;padding:4px 10px;font-size:12px" data-a="libdel" data-id="${x.id}">Delete</button></div></div>`).join("")}</div>`;
+  ${S.ui.addOpen?`<form class="addform panel" id="addform"><label class="f">Name<input type="text" id="an" required placeholder="${t==="hooks"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label><label class="f">Best product types<input type="text" id="af" placeholder="e.g. Gadgets, toys"></label><label class="f full">How it works<textarea id="ad" placeholder="Describe the shots"></textarea></label><label class="f full">Clip<input type="file" id="aclip" accept="video/*"></label><div class="row full"><button class="btn" type="button" data-a="addclose">Cancel</button><button class="btn pri" type="submit">Save</button></div></form>`:""}
+  <div class="lgrid">${list.map(x=>libCard(x,kind,"lib")).join("")}</div>`;
 },
 schedule(){
   return `<div class="head"><div><h1>Schedule</h1><p class="sub">Coming later.</p></div></div>
   <div class="panel soonbox"><h3 style="margin-bottom:8px">Planned</h3><ul><li>Pick up edited videos from Google Drive /Ready to post</li><li>Week calendar for YouTube Shorts, TikTok, Instagram Reels and Facebook Reels</li><li>Caption and hashtags written for each platform</li><li>Post to each product's own brand accounts</li></ul></div>`;
 }};
 
+const CLIPS={};
+const ig=f=>"https://www.instagram.com/"+encodeURIComponent(f.handle)+"/";
+function libCard(x,kind,mode){
+  const c=S.concept,sel=mode==="pick"&&(kind==="hook"?c.hooks:c.reveals).includes(x.id);
+  const media=CLIPS[x.id]?`<video src="${CLIPS[x.id]}" muted loop autoplay playsinline></video>`:"";
+  const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
+  return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:70px 1fr">
+    <div class="player" style="${bg(x)};width:70px">${media}</div>
+    <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits">Clip: ${esc(x.clipName)}</div>`:""}
+      <div class="tools">${mode==="pick"?`<button class="btn ${sel?"cy":""}" data-a="pick${kind}" data-id="${x.id}">${sel?"Selected ✓":"Select"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${mode==="lib"?`<button class="btn bad" data-a="libdel" data-id="${x.id}">Delete</button>`:""}</div>
+    </div></div>`;
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
@@ -374,7 +415,7 @@ function render(){
   const v=route();
   document.querySelectorAll(".nav").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v?"page":"false"));
   $("#main").innerHTML=V[v]();counts();save();
-  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;list.push({id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")});S.ui.addOpen=false;toast("Saved to library");render()};
+  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
 function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
@@ -383,13 +424,13 @@ function suggest(p){const base=["Nova","Glow","Pulse","Orbit","Loop","Spark","Pe
 
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{S.ui.prod=null;location.hash=b.dataset.view;render()});
 addEventListener("hashchange",render);
-$("#reset").onclick=()=>{try{localStorage.removeItem("vs2")}catch(e){}S=seed();render()};
+$("#reset").onclick=()=>{try{localStorage.removeItem("vs3")}catch(e){}S=seed();render()};
 
 $("#main").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b)return;
   const a=b.dataset.a,id=b.dataset.id,gen=S.gens.find(g=>g.id===id),p=S.ui.prod&&P(S.ui.prod);
   switch(a){
-    case"scroll":S.ui.scrolling=true;later(3500,()=>{S.ui.scrolling=false;S.finds.unshift({id:uid(),img:"",bg:G("#103a40","#0b0b10"),handle:"@newfind",followers:"12K",views:"2.2M",x:"183×",likes:"130K",comments:"1.9K",posted:"today",product:"Self-stirring mug",supplier:"AliExpress · $6.40",hook:"\"My coworkers think I'm a wizard\"",reveal:"Press button, whirlpool forms",link:"instagram.com/reel/…"});toast("Found 1 new viral product")});break;
+    case"scroll":S.ui.scrolling=true;later(3500,()=>{S.ui.scrolling=false;const c=S.criteria;S.finds.unshift({id:uid(),img:"",bg:G("#103a40","#0b0b10"),handle:"mugmagic.shop",posts:Math.min(c.maxPosts,9),followers:Math.max(c.minFollowers,3100).toLocaleString("en-US"),views:"2.2M",x:Math.max(c.minX,183)+"×",likes:"130K",comments:"1.9K",posted:"today",product:"Self-stirring mug",supplier:"AliExpress · $6.40",hook:"My coworkers think I'm a wizard",reveal:"Press button, whirlpool forms",demand:"High",buyPct:44,quotes:["Where do I get one?","Perfect gift for my dad","Link in bio?"]});toast("Found 1 product that passes your rules")});break;
     case"stopscroll":S.ui.scrolling=false;break;
     case"skip":S.finds=S.finds.filter(f=>f.id!==id);toast("Skipped. I'll find a replacement on the next scroll");break;
     case"pick":{const f=S.finds.find(x=>x.id===id);S.finds=S.finds.filter(x=>x.id!==id);const np={id:uid(),from:f.product,img:f.img,bg:f.bg,variation:"",niche:"",nameOpts:[],name:"",color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:f.supplier,handles:""};S.products.unshift(np);toast("Added to My products");break}
@@ -418,6 +459,8 @@ $("#main").addEventListener("click",e=>{
     case"unfinal":gen.st="ready";break;
     case"drive":gen.drive=true;toast("Sent to Google Drive");break;
     case"driveall":S.gens.filter(g=>g.st==="final").forEach(g=>g.drive=true);toast("All sent to Google Drive");break;
+    case"rn":S.ui.editing=id;break;
+    case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
     case"addopen":S.ui.addOpen=true;break;
     case"addclose":S.ui.addOpen=false;break;
@@ -425,6 +468,17 @@ $("#main").addEventListener("click",e=>{
   }
   render();
 });
+$("#main").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);CLIPS[x.id]=URL.createObjectURL(f);x.clipName=f.name;toast("Clip uploaded");render();return}
+  const num=v=>parseInt(String(v).replace(/[^0-9]/g,""),10);
+  if(t.id==="cr-posts"&&num(t.value)>0)S.criteria.maxPosts=num(t.value);
+  if(t.id==="cr-fol"&&num(t.value)>=0)S.criteria.minFollowers=num(t.value);
+  if(t.id==="cr-x"&&num(t.value)>0){S.criteria.minX=num(t.value);t.value=S.criteria.minX+"×"}
+  if(t.id==="cr-dem")S.criteria.demand=t.value;
+  if(t.id&&t.id.startsWith("cr-"))save();
+});
+$("#main").addEventListener("keydown",e=>{if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 render();
 </script>
 </body>
