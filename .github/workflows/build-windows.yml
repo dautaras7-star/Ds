@@ -1,0 +1,49 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/hello-laol22, main]
+    paths:
+      - "app/**"
+      - "build/**"
+      - "main.js"
+      - "preload.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build installer
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Viral-Studio-Setup
+          path: dist/*.exe
+
+      - name: Publish as release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Viral Studio build ${{ github.run_number }}
+          files: dist/*.exe
+          prerelease: true
