@@ -341,7 +341,7 @@ generations(){
 finals(){
   const list=S.gens.filter(g=>g.st==="final");
   const notIn=list.filter(g=>!g.drive).length;
-  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved, upscaled to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
+  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
   <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
   ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}"><span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
     <div class="lab"><b>${esc(p?.name||"")}</b>${esc(g.hook)} + ${esc(g.reveal)}</div>
@@ -365,7 +365,7 @@ function gTile(g){
   if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
-  else act=`<div class="note">${g.st==="generating"?"About 3 min left":g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling to 1080p, then moves to Finals"}</div>`;
+  else act=`<div class="note">${g.st==="generating"?"About 3 min left":g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
   return `<div class="vid"><div class="player" style="${bg(g)}">${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div>${act}</div>`;
 }
 
@@ -414,7 +414,7 @@ $("#main").addEventListener("click",e=>{
     case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
     case"dropno":S.ui.dropAsk=null;break;
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
-    case"approve":gen.st="upscaling";toast("Upscaling to 1080p");later(2500,()=>{gen.st="final";gen.drive=false});break;
+    case"approve":gen.st="upscaling";toast("Upscaling with Topaz · 1080p");later(2500,()=>{gen.st="final";gen.drive=false});break;
     case"unfinal":gen.st="ready";break;
     case"drive":gen.drive=true;toast("Sent to Google Drive");break;
     case"driveall":S.gens.filter(g=>g.st==="final").forEach(g=>g.drive=true);toast("All sent to Google Drive");break;
