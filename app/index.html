@@ -334,11 +334,11 @@ products(){
 my(){
   if(S.ui.prod&&P(S.ui.prod))return V.product(P(S.ui.prod));
   return `<div class="head"><div><h1>My products</h1><p class="sub">Each product becomes its own brand: name, logo, Facebook cover, product photos and box. Open one to set it up or see its finished videos.</p></div><span class="example">Example data</span></div>
-  <div class="pgrid">${S.products.map(p=>{const s=pStep(p),fin=S.gens.filter(g=>g.pid===p.id&&g.st==="final").length;return `<button class="pcard panel" data-a="open" data-id="${p.id}">
+  <div class="pgrid">${S.products.map(p=>{const s=pStep(p),fin=S.gens.filter(g=>g.pid===p.id&&g.st==="final").length;return `<div class="pcard panel" data-a="open" data-id="${p.id}" role="button" tabindex="0" style="cursor:pointer">
     <div class="row" style="flex-wrap:nowrap">${logo(p)}<div style="min-width:0"><h3 style="font-size:17px">${esc(p.name||"Not named yet")}</h3><div class="note">${esc(p.from)}</div></div></div>
     <div class="steps" aria-label="Setup ${s} of 3">${[0,1,2].map(i=>`<span class="${i<s?"on":""}"></span>`).join("")}</div>
-    <div class="row"><span class="pill ${s===3?"ok":"warn"}">${s===3?"Brand ready":["Pick variation","Pick name","Brand kit"][s]}</span><span class="pill cy">${fin} final videos</span></div>
-  </button>`}).join("")}</div>`;
+    <div class="row"><span class="pill ${s===3?"ok":"warn"}">${s===3?"Brand ready":["Pick variation","Pick name","Brand kit"][s]}</span><span class="pill cy">${fin} final videos</span>${S.ui.delAsk===p.id?`<span class="confirm" style="margin-left:auto">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="delprod" data-id="${p.id}">Yes, delete</button>`:`<button class="btn bad" style="margin-left:auto;padding:4px 10px;font-size:12px" data-a="ask" data-id="${p.id}">Delete</button>`}</div>
+  </div>`}).join("")}</div>`;
 },
 product(p){
   const kitItem=(k,label,art,cls="")=>{const st=p.kit[k];return `<div class="asset ${cls}"><div class="art ${k==="cover"?"wide":"sq"}" style="background:${st==="todo"?"var(--panel2)":"var(--panel2)"}">${st==="todo"?'<span class="note">Not generated</span>':st==="gen"?'<span class="scrolling" style="font-size:12px"><span class="spin"></span>Generating</span>':(p.art&&p.art[k]?`<img src="${esc(media(p.art[k]))}" alt="" style="width:100%;height:100%;object-fit:cover">`:art)}</div>
@@ -464,7 +464,7 @@ function libCard(x,kind,mode){
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:70px 1fr">
     <div class="player" style="${bg(x)};width:70px">${media}</div>
     <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits">Clip: ${esc(x.clipName)}</div>`:""}
-      <div class="tools">${mode==="pick"?`<button class="btn ${sel?"cy":""}" data-a="pick${kind}" data-id="${x.id}">${sel?"Selected ✓":"Select"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${mode==="lib"?`<button class="btn bad" data-a="libdel" data-id="${x.id}">Delete</button>`:""}</div>
+      <div class="tools">${mode==="pick"?`<button class="btn ${sel?"cy":""}" data-a="pick${kind}" data-id="${x.id}">${sel?"Selected ✓":"Select"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
 }
 function jobsUI(){
@@ -596,10 +596,12 @@ $("#main").addEventListener("click",e=>{
     case"driveall":S.gens.filter(g=>g.st==="final").forEach(g=>g.drive=true);toast("All sent to Google Drive");break;
     case"rn":S.ui.editing=id;break;
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
+    case"ask":S.ui.delAsk=id;break;
+    case"nodel":S.ui.delAsk=null;break;
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
     case"addopen":S.ui.addOpen=true;break;
     case"addclose":S.ui.addOpen=false;break;
-    case"libdel":S.hooks=S.hooks.filter(x=>x.id!==id);S.reveals=S.reveals.filter(x=>x.id!==id);break;
+    case"libdel":S.hooks=S.hooks.filter(x=>x.id!==id);S.reveals=S.reveals.filter(x=>x.id!==id);S.concept.hooks=S.concept.hooks.filter(x=>x!==id);S.concept.reveals=S.concept.reveals.filter(x=>x!==id);S.ui.delAsk=null;toast("Deleted");break;
   }
   render();
 });
@@ -613,7 +615,7 @@ $("#main").addEventListener("change",e=>{
   if(t.id==="cr-dem")S.criteria.demand=t.value;
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 boot();
 </script>
 </body>
