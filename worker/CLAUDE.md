@@ -51,6 +51,12 @@ If taken, try up to 3 close versions (`<handle>.shop`, `get<handle>`, `<handle>_
 If a page can't be checked (login wall, error), use `"available": null`.
 Result: `{"ok":true,"results":[{"name","instagram":{"handle","available":true|false|null,"alt":""},"tiktok":{"handle","available":true|false|null,"alt":""}}]}`
 
+### `usernames`: free social media usernames for a brand
+Input: `name` (the brand name; it does not change), `niche`, `own` (usernames the user typed; check exactly these), `known` (already checked; skip), `count`.
+If `own` is not empty, check only those. Otherwise come up with `count` short, readable usernames based on the name (e.g. `name`, `name.shop`, `getname`, `name_official`, `thename`, `nameco`, `name.store`), lowercase.
+Check each on both platforms with Claude in Chrome (same method as `handles`). `available` is true, false, or null if it couldn't be checked.
+Result: `{"ok":true,"instagram":[{"handle","available"}],"tiktok":[{"handle","available"}]}`
+
 ### `brandkit`: one brand asset with Higgsfield
 Input: `asset` (`logo` | `collage` | `box` | `cover`), `name`, `product`, `niche`, `description`, `variation`, `color`, `refs` (product photo paths/URLs, may include the user's own photos; use them as references), `note` and `previous` (when set, this is a fix: start from `previous` and change only what `note` asks).
 - `logo`: square logo mark for social profiles, simple, readable at small size.

@@ -279,7 +279,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null,ideasFor:null}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null,ideasFor:null,unFor:null}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -385,10 +385,16 @@ product(p){
       ${p.variation?(p.nameOpts.length?`<div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${p.nameOpts.map(n=>{const h=(p.handlesCheck||{})[n];const busy=Object.values(JOBS).some(j=>j.type==="handles"&&j.pid===p.id&&(j.names||[]).includes(n));
         const line=(lab,x)=>!x?"":`<div style="font-size:12px;margin-top:3px"><span class="dot ${x.available===true?"ok":x.available===false?"bad":""}"></span>${lab} <b style="color:var(--fg)">@${esc(x.handle)}</b>${x.available===true?" free":x.available===false?" taken":" unknown"}${x.available===false&&x.alt?` · try <b style="color:var(--ok)">@${esc(x.alt)}</b>`:""}</div>`;
         return `<div class="lcard" style="display:block" aria-pressed="${p.name===n}"><h4>${esc(n)}</h4>
-          ${busy?`<div class="scrolling" style="font-size:12px;margin-top:4px"><span class="spin"></span>Checking usernames…</div>`:h?line("Instagram",h.instagram)+line("TikTok",h.tiktok):`<div class="note" style="margin-top:3px">Usernames not checked</div>`}
-          <div class="tools"><button class="btn ${p.name===n?"cy":"pri"}" data-a="name" data-v="${esc(n)}">${p.name===n?"Picked ✓":"Pick"}</button>${busy?"":`<button class="btn" data-a="handles" data-v="${esc(n)}">${h?"Check again":"Check usernames"}</button>`}</div></div>`}).join("")}</div>
-        <div class="row" style="margin-top:10px"><button class="btn" data-a="morenames">Suggest more</button><button class="btn" data-a="handles">Check all usernames</button></div>`:`<button class="btn" data-a="morenames">Suggest names</button>`):'<p class="note">Pick a variation first.</p>'}
+          <div class="tools"><button class="btn ${p.name===n?"cy":"pri"}" data-a="name" data-v="${esc(n)}">${p.name===n?"Picked ✓":"Pick"}</button></div></div>`}).join("")}</div>
+        <div class="row" style="margin-top:10px"><button class="btn" data-a="morenames">Suggest more</button></div>`:`<button class="btn" data-a="morenames">Suggest names</button>`):'<p class="note">Pick a variation first.</p>'}
     </section>
+    ${p.name?`<section class="step panel"><div class="step-h"><span class="k ${p.social&&p.social.instagram&&p.social.tiktok?"done":""}">@</span><h3>Social media usernames</h3><span class="note" style="margin-left:auto">Brand name stays ${esc(p.name)}</span></div>
+      ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="usernames"&&j.pid===p.id)||S.ui.unFor===p.id;const opts=p.unOpts||{instagram:[],tiktok:[]};const soc=p.social||{};
+        const col=(plat,lab)=>`<div><b style="font-size:13px">${lab}</b>${soc[plat]?` <span class="pill ok">@${esc(soc[plat])}</span>`:""}<div class="opts" style="margin-top:6px">${(opts[plat]||[]).map(o=>`<button class="chip" aria-pressed="${soc[plat]===o.handle}" ${o.available===false?"disabled style=\"opacity:.45;text-decoration:line-through\"":""} data-a="pickun" data-plat="${plat}" data-v="${esc(o.handle)}"><span class="dot ${o.available===true?"ok":o.available===false?"bad":""}"></span>@${esc(o.handle)}</button>`).join("")||'<span class="note">No options yet</span>'}</div></div>`;
+        return `<div class="row" style="margin-bottom:12px">${busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Checking usernames on Instagram and TikTok…</span>`:`<button class="btn pri" data-a="findun">${(opts.instagram||[]).length?"Find more usernames":"Find free usernames"}</button>`}</div>
+        <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">${col("instagram","Instagram")}${col("tiktok","TikTok")}</div>
+        <div class="row" style="margin-top:12px"><input type="text" id="ownun" placeholder="Type a username to check, e.g. snoozasaur.co" style="max-width:320px"><button class="btn" data-a="checkun">Check it</button></div>`})()}
+    </section>`:""}
     <section class="step panel"><div class="step-h"><span class="k ${kitDone(p)===4?"done":""}">3</span><h3>Brand kit</h3><span class="note" style="margin-left:auto">${kitDone(p)} of 4 approved</span></div>
       <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
     </section>
@@ -396,7 +402,7 @@ product(p){
       ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab">${glab(g)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
     </section>
   </div>
-  <aside class="side">${p.desc||(p.photos&&p.photos.length)?`<div class="panel">${p.desc?`<p style="margin:0 0 10px">${esc(p.desc)}</p>`:""}${p.photos&&p.photos.length?`<div class="row">${p.photos.map(ph=>`<img src="${esc(media(ph))}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join("")}</div>`:""}</div>`:""}<div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Socials</dt><dd>${esc(p.handles||"—")}</dd></dl></div>
+  <aside class="side">${p.desc||(p.photos&&p.photos.length)?`<div class="panel">${p.desc?`<p style="margin:0 0 10px">${esc(p.desc)}</p>`:""}${p.photos&&p.photos.length?`<div class="row">${p.photos.map(ph=>`<img src="${esc(media(ph))}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join("")}</div>`:""}</div>`:""}<div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Instagram</dt><dd>${p.social&&p.social.instagram?"@"+esc(p.social.instagram):"—"}</dd><dt>TikTok</dt><dd>${p.social&&p.social.tiktok?"@"+esc(p.social.tiktok):"—"}</dd></dl></div>
     ${p.variation==="My own product"&&!p.url?"":`<div class="panel">${p.url?`<a class="player" href="${esc(p.url)}" target="_blank" rel="noopener" style="${bg(p)};width:140px">`:`<div class="player" style="${bg(p)};width:140px">`}<span class="play"></span>${p.url?"</a>":"</div>"}<p class="note">Source viral video${p.url?" · opens Instagram":""}</p></div>`}
     ${pStep(p)===3?`<button class="btn pri big" data-a="toconcept" data-id="${p.id}">Make concepts →</button>`:'<p class="note">Finish all 3 steps to start making videos.</p>'}
   </aside></div>`;
@@ -522,7 +528,7 @@ if(window.studio)window.studio.onJobEvent(m=>{
   if(!r.ok)toast(r.error||"Job failed");
   render();
 });
-function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||""},r=>{if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh];checkHandles(p,fresh)}})}
+function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||""},r=>{if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh]}})}
 function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box,...(pr.photos||[])].filter(Boolean)}
 const LIVE={
   scroll(){S.ui.scrolling=true;runJob("scroll",`Scrolling Instagram · up to ${S.criteria.count||5} products · ${S.criteria.minutes||20} min`,{criteria:S.criteria,count:S.criteria.count||5,maxMinutes:S.criteria.minutes||20},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
@@ -606,6 +612,19 @@ function bestHandles(p,n){
   const ig=pick(h.instagram),tt=pick(h.tiktok);
   return ig===tt?"@"+ig:`IG @${ig} · TikTok @${tt}`;
 }
+function mergeUn(p,res){
+  p.unOpts=p.unOpts||{instagram:[],tiktok:[]};
+  for(const plat of ["instagram","tiktok"]){(res[plat]||[]).forEach(o=>{const i=p.unOpts[plat].findIndex(x=>x.handle===o.handle);if(i>=0)p.unOpts[plat][i]=o;else p.unOpts[plat].push(o)})}
+}
+function findUsernames(p,own){
+  const known=p.unOpts?[...p.unOpts.instagram,...p.unOpts.tiktok].map(o=>o.handle):[];
+  if(MODE==="live"){
+    if(!window.studio){toast("Live mode only works in the desktop app");return}
+    const id=runJob("usernames","Usernames · "+p.name,{name:p.name,niche:p.niche||"",own,known,count:6},r=>{if(r.ok)mergeUn(p,r)});
+    JOBS[id].pid=p.id;
+  }else{S.ui.unFor=p.id;later(1200,()=>{S.ui.unFor=null;const b=p.name.toLowerCase();const list=own.length?own:[b,b+".shop","get"+b,b+"_official","the"+b,b+"store"];
+    mergeUn(p,{instagram:list.map((h,i)=>({handle:h,available:i%3!==0})),tiktok:list.map((h,i)=>({handle:h,available:i%2===1}))})})}
+}
 function checkHandles(p,names){
   names=(names||[]).filter(Boolean);if(!names.length)return;
   if(MODE==="live"){
@@ -683,7 +702,7 @@ $("#main").addEventListener("click",e=>{
     case"delprod":S.products=S.products.filter(x=>x.id!==id);S.gens=S.gens.filter(g=>g.pid!==id);S.ui.prod=null;toast("Product removed");break;
     case"var":setVar(p,b.dataset.v);return;
     case"morenames":p.nameOpts=suggest(p);break;
-    case"name":p.name=b.dataset.v;p.handles=bestHandles(p,p.name);Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Name set. Generate the brand kit next");break;
+    case"name":if(p.name!==b.dataset.v){p.unOpts=null;p.social={}}p.name=b.dataset.v;Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Name set. Generate the brand kit next");break;
     case"kitgen":{const k=b.dataset.k;p.kit[k]="gen";S.credits+=4;later(1500,()=>{p.kit[k]="pending"});break}
     case"kitok":p.kit[b.dataset.k]="ok";if(kitDone(p)===4)toast("Brand kit done. Ready for concepts");break;
     case"toconcept":S.concept={pid:id,hooks:[],reveals:[],engines:{}};S.ui.prod=null;location.hash="concepts";break;
@@ -720,6 +739,9 @@ $("#main").addEventListener("click",e=>{
     case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
     case"ideas":brainstorm(p);break;
     case"handles":checkHandles(p,b.dataset.v?[b.dataset.v]:p.nameOpts);break;
+    case"findun":findUsernames(p,[]);break;
+    case"checkun":{const v=($("#ownun").value||"").trim().replace(/^@/,"").toLowerCase();if(!v){toast("Type a username first");return}findUsernames(p,[v]);break}
+    case"pickun":p.social=p.social||{};p.social[b.dataset.plat]=b.dataset.v;p.handles=[p.social.instagram&&"IG @"+p.social.instagram,p.social.tiktok&&"TikTok @"+p.social.tiktok].filter(Boolean).join(" · ");break;
     case"comp":compSearch(p,+b.dataset.i);break;
     case"pickidea":{const it=(p.ideas||[])[+b.dataset.i];if(it){if(it.type==="niche")p.niche=it.audience||it.title;setVar(p,it.title);return}break}
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
