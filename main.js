@@ -140,6 +140,8 @@ ipcMain.handle('job:start', (e, job) => {
     } catch (_) { /* non-JSON line */ }
   });
   running.set(id, child);
+  const limit = job.input && +job.input.maxMinutes;
+  if (limit > 0) setTimeout(() => { if (running.get(id) === child) { log(`job ${id} time limit`); try { child.kill(); } catch (_) {} } }, (limit + 3) * 60000);
   child.on('error', (err) => {
     running.delete(id);
     log(`job ${id} spawn error ${err}`);

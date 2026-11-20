@@ -165,7 +165,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .addform{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .addform .full{grid-column:1/-1}
 
-.crit{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:end;margin-bottom:18px}
+.crit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end;margin-bottom:18px}
 .crit input,.crit select{font-family:var(--mono)}
 .checks{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .ck{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--panel2);color:var(--ok)}
@@ -244,7 +244,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 
 function seed(){return{
   credits:216,
-  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium"},
+  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium",count:5,minutes:20},
   finds:[
     {id:"f1",img:IMG.v2,handle:"cabin.family.fun",posts:11,followers:"18K",views:"8.4M",x:"466×",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",supplier:"AliExpress · $21.40",hook:"Dad snatches the kids' screens, then reveals the box",reveal:"Unbox → projector lights up the wall → family plays",demand:"High",buyPct:58,quotes:["Where can I buy this??","Need this for my boys for Christmas","Link pls 🙏"]},
     {id:"f2",img:"",bg:G("#3a1550","#0d2a4a"),handle:"glowroomco",posts:17,followers:"4.2K",views:"5.2M",x:"124×",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",supplier:"AliExpress · $9.80",hook:"Girlfriend turns off the light",reveal:"Room turns into a galaxy, slow pan",demand:"High",buyPct:41,quotes:["What's the name of it?","Ordered 2 already","My daughter would love this"]},
@@ -279,7 +279,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -319,9 +319,11 @@ products(){
     <label class="f">Account has at least (followers)<input type="text" inputmode="numeric" id="cr-fol" value="${c.minFollowers}"></label>
     <label class="f">Views vs account's usual (at least)<input type="text" inputmode="numeric" id="cr-x" value="${c.minX}×"></label>
     <label class="f">Buying demand in comments (at least)<select id="cr-dem">${["Low","Medium","High"].map(v=>`<option ${v===c.demand?"selected":""}>${v}</option>`).join("")}</select></label>
-    ${S.ui.scrolling?`<button class="btn" type="button" data-a="stopscroll">Stop</button>`:`<button class="btn pri big" type="button" data-a="scroll">Start scrolling</button>`}
+    <label class="f">Find this many products<input type="text" inputmode="numeric" id="cr-count" value="${c.count||5}"></label>
+    <label class="f">Scroll for at most (minutes)<input type="text" inputmode="numeric" id="cr-min" value="${c.minutes||20}"></label>
+    ${S.ui.scrolling?`<button class="btn" type="button" data-a="stopscroll">Stop</button>`:`<button class="btn pri big" type="button" data-a="scroll" style="align-self:end">Start scrolling</button>`}
   </form>
-  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Checking each account: ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
+  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Checking each account: ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
   ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><a class="player" href="${ig(f)}" target="_blank" rel="noopener" style="${bg(f)}" title="Open on Instagram"><span class="play"></span><span class="ext">IG ↗</span></a>
     <div style="min-width:0"><div class="eyebrow">@${esc(f.handle)} · ${esc(f.posted)}</div><h3><a class="title-link" href="${ig(f)}" target="_blank" rel="noopener">${esc(f.product)}</a></h3><div class="note">${esc(f.supplier)}</div>
       <div class="checks"><span class="ck">${f.posts} posts</span><span class="ck">${esc(f.followers)} followers</span><span class="ck">${f.x} usual views</span></div>
@@ -365,7 +367,7 @@ product(p){
       <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
     </section>
     <section class="step panel"><div class="step-h"><h3>Final videos</h3><span class="note" style="margin-left:auto">Approved and upscaled hook + reveal combos</span></div>
-      ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
+      ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab">${glab(g)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
     </section>
   </div>
   <aside class="side"><div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Socials</dt><dd>${esc(p.handles||"—")}</dd></dl></div>
@@ -377,19 +379,25 @@ concepts(){
   const ready=S.products.filter(p=>pStep(p)===3);
   const c=S.concept; if(!ready.find(p=>p.id===c.pid))c.pid=ready[0]?.id;
   const p=P(c.pid);
-  const combos=[];c.hooks.forEach(h=>c.reveals.forEach(r=>combos.push({h,r,key:h+"|"+r})));
-  const hk=id=>S.hooks.find(x=>x.id===id),rv=id=>S.reveals.find(x=>x.id===id);
-  const card=(x,kind)=>libCard(x,kind,"pick");
-  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Pick a product, then the hooks and reveals to recreate. Each hook + reveal pair becomes one video. Choose Seedance (built from scratch) or Genjutsu (our product swapped into the viral video) per pair.</p></div><span class="example">Example data</span></div>
-  ${!ready.length?'<div class="empty">No product is ready yet. Finish a product\'s brand kit in My products first.</div>':`
-  <section class="cstep"><h2><span class="k">1</span>Product</h2><div class="opts">${ready.map(x=>`<button class="chip" aria-pressed="${x.id===c.pid}" data-a="cprod" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div></section>
-  <section class="cstep"><h2><span class="k">2</span>Hooks <span class="note">${c.hooks.length} selected</span></h2><div class="lgrid">${S.hooks.map(h=>card(h,"hook")).join("")}</div></section>
-  <section class="cstep"><h2><span class="k">3</span>Reveals <span class="note">${c.reveals.length} selected</span></h2><div class="lgrid">${S.reveals.map(r=>card(r,"rev")).join("")}</div>
-    <p class="note">Need a new one? Add it in Finished clips.</p></section>
-  <section class="cstep panel"><h2><span class="k">4</span>Videos to generate for ${esc(p.name)}</h2>
-    ${combos.length?`<div class="combos">${combos.map(o=>{const e=c.engines[o.key]||"Seedance";return `<div class="combo"><div><b>${esc(hk(o.h).name)}</b> + ${esc(rv(o.r).name)}</div><span class="note">${e==="Seedance"?"length: I decide":"length: like source"}</span><div class="seg" role="group"><button aria-pressed="${e==="Seedance"}" data-a="eng" data-k="${o.key}" data-v="Seedance">Seedance</button><button aria-pressed="${e==="Genjutsu"}" data-a="eng" data-k="${o.key}" data-v="Genjutsu">Genjutsu</button></div><button class="btn bad" data-a="rmcombo" data-h="${o.h}" data-r="${o.r}" aria-label="Remove">✕</button></div>`}).join("")}</div>
-    <div class="genbar"><span class="note">${combos.length} video${combos.length>1?"s":""} · about ${combos.length*72} credits · 1 take each · 480p, 9:16, sound on</span><button class="btn pri big" data-a="generate">Generate ${combos.length} video${combos.length>1?"s":""}</button></div>`:'<p class="note">Select at least one hook and one reveal.</p>'}
-  </section>`}`;
+  const section=(kind,title,list)=>{
+    const word=kind==="hook"?"hook":"reveal",finding=Object.values(JOBS).some(j=>j.type==="findclips"&&j.kind===kind);
+    return `<section class="cstep panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px"><h2 style="margin:0">${title} <span class="note">${list.length}</span></h2>
+        <div class="row">${finding||S.ui.finding===kind?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Finding viral ${word}s…</span>`:`<button class="btn cy" data-a="findclips" data-v="${kind}">Find viral ${word}s</button>`}<button class="btn" data-a="addc" data-v="${kind}">Add ${word}</button></div></div>
+      ${S.ui.addKind===kind?`<form class="addform" id="addform2" data-kind="${kind}" style="background:var(--panel2);padding:12px;border-radius:12px">
+        <label class="f">Name<input type="text" id="a2n" required placeholder="${kind==="hook"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label>
+        <label class="f">Best product types<input type="text" id="a2f" placeholder="e.g. Gadgets, toys"></label>
+        <label class="f full">How it works<textarea id="a2d" placeholder="Describe the shots"></textarea></label>
+        <label class="f">Example on Instagram (link)<input type="text" id="a2u" placeholder="https://www.instagram.com/reel/…"></label>
+        <label class="f">Or upload the clip<input type="file" id="a2c" accept="video/*"></label>
+        <div class="row full"><button class="btn" type="button" data-a="addcclose">Cancel</button><button class="btn pri" type="submit">Save ${word}</button></div></form>`:""}
+      ${list.length?`<div class="lgrid">${list.map(x=>libCard(x,kind==="hook"?"hook":"rev","pick")).join("")}</div>`:`<p class="note">No ${word}s yet. Find viral ones or add your own.</p>`}
+    </section>`;
+  };
+  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Hooks are the first 2–3 seconds. Reveals show the product. Find viral ones from competitors or add your own, then press Generate on any card and choose Seedance or Genjutsu.</p></div></div>
+  <section class="cstep"><h2>Product</h2>${ready.length?`<div class="opts">${ready.map(x=>`<button class="chip" aria-pressed="${x.id===c.pid}" data-a="cprod" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div>`:'<p class="note">No product is ready yet. Finish a product\'s brand kit in My products to generate. You can still collect hooks and reveals.</p>'}</section>
+  ${section("hook","Hooks",S.hooks)}
+  ${section("rev","Reveals",S.reveals)}`;
 },
 generations(){
   const list=S.gens.filter(g=>g.st!=="final");
@@ -403,7 +411,7 @@ finals(){
   return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
   <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
   ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
-    <div class="lab"><b>${esc(p?.name||"")}</b>${esc(g.hook)} + ${esc(g.reveal)}</div>
+    <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>
     ${g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
 },
 library(){
@@ -462,9 +470,10 @@ function libCard(x,kind,mode){
   const media=CLIPS[x.id]?`<video src="${CLIPS[x.id]}" muted loop autoplay playsinline></video>`:"";
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:70px 1fr">
-    <div class="player" style="${bg(x)};width:70px">${media}</div>
+    <div class="player" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:70px">${media}</div>
     <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits">Clip: ${esc(x.clipName)}</div>`:""}
-      <div class="tools">${mode==="pick"?`<button class="btn ${sel?"cy":""}" data-a="pick${kind}" data-id="${x.id}">${sel?"Selected ✓":"Select"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
+      ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}${mode==="pick"&&S.ui.genFor===x.id?`<div class="tools"><span class="note" style="align-self:center">Generate with</span><button class="btn pri" data-a="gen1" data-id="${x.id}" data-k="${kind}" data-v="Seedance">Seedance</button><button class="btn pri" data-a="gen1" data-id="${x.id}" data-k="${kind}" data-v="Genjutsu">Genjutsu</button><button class="btn" data-a="gencancel">Cancel</button></div>`:""}
+      <div class="tools">${mode==="pick"&&S.ui.genFor!==x.id?`<button class="btn cy" data-a="genask" data-id="${x.id}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
 }
 function jobsUI(){
@@ -490,7 +499,7 @@ if(window.studio)window.studio.onJobEvent(m=>{
 function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche},r=>{if(r.ok)p.nameOpts=r.names||[]})}
 function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box].filter(Boolean).map(x=>/^https?:/.test(x)?x:x)}
 const LIVE={
-  scroll(){S.ui.scrolling=true;runJob("scroll","Scrolling Instagram",{criteria:S.criteria,count:5},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
+  scroll(){S.ui.scrolling=true;runJob("scroll",`Scrolling Instagram · up to ${S.criteria.count||5} products · ${S.criteria.minutes||20} min`,{criteria:S.criteria,count:S.criteria.count||5,maxMinutes:S.criteria.minutes||20},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
   stopscroll(){Object.keys(JOBS).filter(k=>JOBS[k].type==="scroll").forEach(k=>window.studio.cancelJob(k));S.ui.scrolling=false},
   morenames(){askNames(P(S.ui.prod))},
   kitgen(b){const p=P(S.ui.prod),k=b.dataset.k;p.kit[k]="gen";runJob("brandkit",`${k} · ${p.name}`,{asset:k,name:p.name,product:p.from,variation:p.variation,color:p.color,refs:k==="collage"?[]:refsOf(p)},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"})},
@@ -530,6 +539,29 @@ async function boot(){
   try{CC={checked:true,...await window.studio.checkClaude()}}catch(e){CC={checked:true,ok:false}}
   render();
 }
+function glab(g){return g.hook&&g.reveal?`<b>${esc(g.hook)}</b>+ ${esc(g.reveal)}`:g.hook?`<b>${esc(g.hook)}</b>Hook`:`<b>${esc(g.reveal)}</b>Reveal`}
+function genOne(x,kind,engine){
+  const pr=P(S.concept.pid);
+  if(!pr){toast("Finish a product's brand kit first, then pick it at the top");return}
+  const isHook=kind==="hook";
+  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
+  S.gens.unshift(g);S.ui.genFor=null;
+  if(MODE==="live"){
+    if(!window.studio){toast("Live mode only works in the desktop app");return}
+    const clip={name:x.name,desc:x.desc,url:x.url||""};
+    g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:{name:pr.name,from:pr.from,refs:refsOf(pr)},hook:isHook?clip:null,reveal:isHook?null:clip,engine,source:x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
+  }else{S.credits+=72;later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
+  toast(`Generating ${isHook?"hook":"reveal"} with ${engine}. See Generations`);
+}
+function findClips(kind){
+  const word=kind==="hook"?"hook":"reveal",list=kind==="hook"?S.hooks:S.reveals;
+  if(MODE==="live"){
+    if(!window.studio){toast("Live mode only works in the desktop app");return}
+    const id=runJob("findclips",`Finding viral ${word}s`,{kind:word,count:5,criteria:S.criteria,known:list.map(x=>x.name)},r=>{S.ui.finding=null;if(r.ok){(r.items||[]).forEach(it=>list.push({id:uid(),name:it.name,desc:it.desc||"",fits:it.fits||"Any",url:it.url||"",views:it.views||"",thumb:it.thumb||"",bg:G("#232336","#0b0b10")}));toast(`Added ${(r.items||[]).length} viral ${word}s`)}});
+    JOBS[id].kind=kind;
+  }else{S.ui.finding=kind;later(2500,()=>{S.ui.finding=null;list.push({id:uid(),name:kind==="hook"?"\"Don't buy this…\" reverse psychology":"Before/after split screen",desc:kind==="hook"?"Creator warns viewers not to buy it, then shows why everyone does.":"Left half: problem. Right half: product fixing it.",fits:"Most products",url:"https://www.instagram.com/",views:"3.1M",bg:G("#232336","#0b0b10")});toast(`Added 1 viral ${word} (example)`)})}
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
@@ -537,7 +569,7 @@ function gTile(g){
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab"><b>${esc(g.hook)}</b>+ ${esc(g.reveal)}</div>${act}</div>`;
+  return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${act}</div>`;
 }
 
 function route(){const h=(location.hash||"#products").slice(1);return V[h]&&h!=="product"?h:"products"}
@@ -549,6 +581,7 @@ function render(){
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
   $("#main").innerHTML=warn+V[v]();counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
+  const f2=$("#addform2");if(f2)f2.onsubmit=e=>{e.preventDefault();const n=$("#a2n").value.trim();if(!n)return;const kind=f2.dataset.kind,list=kind==="hook"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#a2d").value.trim()||"—",fits:$("#a2f").value.trim()||"Any",url:$("#a2u").value.trim(),bg:G("#232336","#0b0b10")};const cf=$("#a2c").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addKind=null;toast("Added");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
 function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
@@ -598,6 +631,12 @@ $("#main").addEventListener("click",e=>{
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"ask":S.ui.delAsk=id;break;
     case"nodel":S.ui.delAsk=null;break;
+    case"genask":S.ui.genFor=id;break;
+    case"gencancel":S.ui.genFor=null;break;
+    case"gen1":{const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(x)genOne(x,b.dataset.k,b.dataset.v);break}
+    case"findclips":findClips(b.dataset.v);break;
+    case"addc":S.ui.addKind=b.dataset.v;break;
+    case"addcclose":S.ui.addKind=null;break;
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
     case"addopen":S.ui.addOpen=true;break;
     case"addclose":S.ui.addOpen=false;break;
@@ -613,6 +652,8 @@ $("#main").addEventListener("change",e=>{
   if(t.id==="cr-fol"&&num(t.value)>=0)S.criteria.minFollowers=num(t.value);
   if(t.id==="cr-x"&&num(t.value)>0){S.criteria.minX=num(t.value);t.value=S.criteria.minX+"×"}
   if(t.id==="cr-dem")S.criteria.demand=t.value;
+  if(t.id==="cr-count"&&num(t.value)>0)S.criteria.count=Math.min(num(t.value),50);
+  if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
 $("#main").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});

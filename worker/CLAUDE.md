@@ -17,11 +17,12 @@ Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 ## Job types
 
 ### `scroll`: find viral products on Instagram
-Input: `criteria` = `{maxPosts, minFollowers, minX, demand}`, `count` (default 5).
+Input: `criteria` = `{maxPosts, minFollowers, minX, demand}`, `count` (how many products to find, default 5), `maxMinutes` (time limit, default 20).
+Note the start time (`date`) and check it as you go. When `maxMinutes` is reached, stop and write the result with whatever you found so far, even if it's fewer than `count`. The app stops you a few minutes after the limit, and anything not written by then is lost.
 Use Claude in Chrome (the user's Chrome, logged into their burner Instagram). Open Reels and scroll.
 For each reel, check the account: at most `maxPosts` posts, at least `minFollowers` followers, and the reel's views at least `minX` times the account's usual views (median of its other reels).
 For reels that pass, open the comments and judge buying demand: share of comments asking where to buy, price, link, "need this", "ordered". `Low` < 15%, `Medium` 15–35%, `High` > 35%. Keep only reels at or above `criteria.demand`.
-Identify the product and find it on AliExpress (price). Stop at `count` finds or after about 150 reels.
+Identify the product and find it on AliExpress (price). Stop at `count` finds or when the time limit is reached, whichever comes first.
 Result: `{"ok":true,"finds":[{"url","handle","posts","followers","views","x","likes","comments","posted","product","supplier","hook","reveal","demand","buyPct","quotes":[3 real comments],"thumb"}]}`
 `x` is a string like `"124×"`. `thumb` is a screenshot or cover image of the reel.
 
@@ -37,10 +38,10 @@ Input: `asset` (`logo` | `collage` | `box` | `cover`), `name`, `product`, `varia
 - `cover`: Facebook cover 820×312 with the brand name.
 Use `generate_image`. Result: `{"ok":true,"file":"<path or url>","credits":n}`
 
-### `generate`: one video from a hook + reveal
-Input: `product` (name, refs), `hook` and `reveal` (name, description, clip path if any), `engine` (`Seedance` | `Genjutsu`), `source` (viral reel url/path for Genjutsu), `maxCredits`.
+### `generate`: one video from a hook, a reveal, or both
+Input: `product` (name, refs), `hook` and `reveal` (each `{name, desc, url}` or `null`; one of them may be null: then make just that hook (2–5s) or just that reveal), `engine` (`Seedance` | `Genjutsu`), `source` (viral reel url/path for Genjutsu), `maxCredits`.
 - **Seedance**: model `seedance_2_5`, mode `omni_reference`, resolution `480p`, aspect `9:16`, bitrate `high`, `generate_audio: true`. Attach only product photos as `image_references` (never start/end frames). Write a detailed timestamped multi-shot prompt: setting, people, wardrobe, lighting, emotions, English lip-synced dialogue, real-life sounds, no on-screen text. Pick the length that fits the hook + reveal (usually 10–15s).
-- **Genjutsu**: model `hf_mult_replace_object`, source video = `source`, images = product refs. Prompt: the user's template without the ownership sentence (the source belongs to someone else): keep everything identical, swap only the product, no text, no audio unless asked.
+- **Genjutsu**: model `hf_mult_replace_object`, source video = `source` (download it first if it's an Instagram link and upload it to Higgsfield), images = product refs. Prompt: the user's template without the ownership sentence (the source belongs to someone else): keep everything identical, swap only the product, no text, no audio unless asked.
 Always estimate cost first; if over `maxCredits`, stop with an error.
 Result: `{"ok":true,"video":"<url>","job_id":"<higgsfield job id>","duration":"0:15","credits":n,"prompt":"<prompt used>"}`
 
@@ -55,6 +56,11 @@ Result: `{"ok":true,"video":"<url>","job_id":"<upscale job id>"}`
 Input: `video` (url), `product`, `name`. Download the video and upload it to Google Drive folder `Viral Studio/<product>/To edit`.
 If no Google Drive tool is available, write `{"ok":false,"error":"Google Drive isn't connected to Claude Code yet."}`.
 Result: `{"ok":true,"drive_url":"<link>"}`
+
+### `findclips`: find viral hooks or reveals from competitors
+Input: `kind` (`hook` | `reveal`), `count`, `criteria`, `known` (names the user already has; skip those).
+Use Claude in Chrome on Instagram Reels. Look for outlier reels of physical products (same `criteria` as `scroll`). For each, describe the opening hook (first 2–3 seconds) or the reveal (how the product is shown) as a reusable format, not tied to that product.
+Result: `{"ok":true,"items":[{"name":"short format name","desc":"how it works, shot by shot","fits":"product types it suits","url":"reel url","views":"2.4M","thumb":"<path or url>"}]}`
 
 ### `ping`
 Connection test. Check which tools you have. Result: `{"ok":true,"higgsfield":bool,"chrome":bool,"drive":bool}`
