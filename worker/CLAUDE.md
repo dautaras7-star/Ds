@@ -42,6 +42,15 @@ Search for stores and creators already selling this product as this variation or
 Judge: `open` (nobody really sells it this way), `some` (a few small sellers, room left), `crowded` (many sellers or big brands, lots of ads).
 Result: `{"ok":true,"verdict":"open"|"some"|"crowded","summary":"one plain sentence","competitors":[{"name","url","where":"Instagram|Amazon|Ad Library|web","stats":"followers/views/reviews/ads running","price":"$"}]}` (up to 8, strongest first)
 
+### `handles`: are the Instagram and TikTok usernames free?
+Input: `names` (brand names).
+For each name, make the handle: lowercase, no spaces (keep dots/underscores out unless needed). Check with Claude in Chrome:
+- Instagram: open `https://www.instagram.com/<handle>/`. "Sorry, this page isn't available" = free. A profile = taken.
+- TikTok: open `https://www.tiktok.com/@<handle>`. "Couldn't find this account" = free. A profile = taken.
+If taken, try up to 3 close versions (`<handle>.shop`, `get<handle>`, `<handle>_official`, `<handle>store`) and return the first free one as `alt`.
+If a page can't be checked (login wall, error), use `"available": null`.
+Result: `{"ok":true,"results":[{"name","instagram":{"handle","available":true|false|null,"alt":""},"tiktok":{"handle","available":true|false|null,"alt":""}}]}`
+
 ### `brandkit`: one brand asset with Higgsfield
 Input: `asset` (`logo` | `collage` | `box` | `cover`), `name`, `product`, `niche`, `description`, `variation`, `color`, `refs` (product photo paths/URLs, may include the user's own photos; use them as references), `note` and `previous` (when set, this is a fix: start from `previous` and change only what `note` asks).
 - `logo`: square logo mark for social profiles, simple, readable at small size.
