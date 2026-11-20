@@ -87,7 +87,8 @@ Result: `{"ok":true,"drive_url":"<link>"}`
 ### `findclips`: find viral hooks or reveals from competitors
 Input: `kind` (`hook` | `reveal`), `count`, `criteria`, `known` (names the user already has; skip those).
 Use Claude in Chrome on Instagram Reels. Look for outlier reels of physical products (same `criteria` as `scroll`). For each, describe the opening hook (first 2–3 seconds) or the reveal (how the product is shown) as a reusable format, not tied to that product.
-Result: `{"ok":true,"items":[{"name":"short format name","desc":"how it works, shot by shot","fits":"product types it suits","url":"reel url","views":"2.4M","thumb":"<path or url>"}]}`
+Also save a short preview of just the hook (first 3 seconds) or the reveal part as `media/<something>.mp4`: download the reel (e.g. with yt-dlp if installed, or screen-record is not needed: skip the clip if you can't download), then cut it with ffmpeg if available (`ffmpeg -ss <start> -t 3 -i in.mp4 -an -vf scale=360:-2 out.mp4`). Leave `clip` empty if you can't.
+Result: `{"ok":true,"items":[{"name":"short format name","desc":"how it works, shot by shot","fits":"product types it suits","url":"reel url","views":"2.4M","thumb":"<path or url>","clip":"media/<file>.mp4 or empty"}]}`
 
 ### `ping`
 Connection test. Check which tools you have. Result: `{"ok":true,"higgsfield":bool,"chrome":bool,"drive":bool}`

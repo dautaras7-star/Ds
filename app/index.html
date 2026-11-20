@@ -181,7 +181,8 @@ a.title-link:hover{text-decoration:underline}
 .lcard .tools{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .lcard .tools .btn{padding:3px 9px;font-size:11px;cursor:pointer}
 .lcard .tools input[type=file]{display:none}
-.lcard video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.lcard video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;z-index:0}
+.lcard .player::after{display:none}
 .lcard .sel{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:2px solid var(--muted);background:transparent}
 .lcard[aria-pressed="true"] .sel{background:var(--accent2);border-color:var(--accent2)}
 .rename{display:flex;gap:6px;margin-bottom:4px}
@@ -499,11 +500,11 @@ const CLIPS={};
 const ig=f=>"https://www.instagram.com/"+encodeURIComponent(f.handle)+"/";
 function libCard(x,kind,mode){
   const c=S.concept,sel=mode==="pick"&&(kind==="hook"?c.hooks:c.reveals).includes(x.id);
-  const media=CLIPS[x.id]?`<video src="${CLIPS[x.id]}" muted loop autoplay playsinline></video>`:"";
+  const csrc=CLIPS[x.id]||(x.clip?media(x.clip):"");const mediaEl=csrc?`<video src="${esc(csrc)}" muted loop autoplay playsinline preload="auto" disablepictureinpicture></video>`:"";
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
-  return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:70px 1fr">
-    <div class="player" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:70px">${media}</div>
-    <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits">Clip: ${esc(x.clipName)}</div>`:""}
+  return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:110px 1fr">
+    <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<span class="note" style="position:absolute;inset:auto 0 8px;text-align:center;z-index:1;font-size:10px">No clip</span>`}</div>
+    <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
       ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}${mode==="pick"&&S.ui.genFor===x.id?`<div class="tools"><span class="note" style="align-self:center">Generate with</span><button class="btn pri" data-a="gen1" data-id="${x.id}" data-k="${kind}" data-v="Seedance">Seedance</button><button class="btn pri" data-a="gen1" data-id="${x.id}" data-k="${kind}" data-v="Genjutsu">Genjutsu</button><button class="btn" data-a="gencancel">Cancel</button></div>`:""}
       <div class="tools">${mode==="pick"&&S.ui.genFor!==x.id?`<button class="btn cy" data-a="genask" data-id="${x.id}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
@@ -591,7 +592,7 @@ function findClips(kind){
   const word=kind==="hook"?"hook":"reveal",list=kind==="hook"?S.hooks:S.reveals;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const id=runJob("findclips",`Finding viral ${word}s`,{kind:word,count:5,criteria:S.criteria,known:list.map(x=>x.name)},r=>{S.ui.finding=null;if(r.ok){(r.items||[]).forEach(it=>list.push({id:uid(),name:it.name,desc:it.desc||"",fits:it.fits||"Any",url:it.url||"",views:it.views||"",thumb:it.thumb||"",bg:G("#232336","#0b0b10")}));toast(`Added ${(r.items||[]).length} viral ${word}s`)}});
+    const id=runJob("findclips",`Finding viral ${word}s`,{kind:word,count:5,criteria:S.criteria,known:list.map(x=>x.name)},r=>{S.ui.finding=null;if(r.ok){(r.items||[]).forEach(it=>list.push({id:uid(),name:it.name,desc:it.desc||"",fits:it.fits||"Any",url:it.url||"",views:it.views||"",thumb:it.thumb||"",clip:it.clip||"",bg:G("#232336","#0b0b10")}));toast(`Added ${(r.items||[]).length} viral ${word}s`)}});
     JOBS[id].kind=kind;
   }else{S.ui.finding=kind;later(2500,()=>{S.ui.finding=null;list.push({id:uid(),name:kind==="hook"?"\"Don't buy this…\" reverse psychology":"Before/after split screen",desc:kind==="hook"?"Creator warns viewers not to buy it, then shows why everyone does.":"Left half: problem. Right half: product fixing it.",fits:"Most products",url:"https://www.instagram.com/",views:"3.1M",bg:G("#232336","#0b0b10")});toast(`Added 1 viral ${word} (example)`)})}
 }
@@ -670,13 +671,13 @@ function render(){
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
   $("#main").innerHTML=warn+V[v]();counts();save();jobsUI();
-  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
+  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
     const brand=$("#np-brand").value.trim();
     const np={id:uid(),from:nm,url:"",img:photos[0]?media(photos[0]):"",bg:G("#232336","#0b0b10"),variation:"My own product",niche:$("#np-niche").value.trim(),desc:$("#np-desc").value.trim(),photos,nameOpts:[],name:brand,color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:photos.length?"todo":"todo",box:"todo"},supplier:"—",handles:brand?"@"+brand.toLowerCase().replace(/\s+/g,""):""};
     S.products.unshift(np);S.ui.addProd=false;S.ui.prod=np.id;toast("Product added");render();if(!brand&&MODE==="live")askNames(np)};
-  const f2=$("#addform2");if(f2)f2.onsubmit=e=>{e.preventDefault();const n=$("#a2n").value.trim();if(!n)return;const kind=f2.dataset.kind,list=kind==="hook"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#a2d").value.trim()||"—",fits:$("#a2f").value.trim()||"Any",url:$("#a2u").value.trim(),bg:G("#232336","#0b0b10")};const cf=$("#a2c").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addKind=null;toast("Added");render()};
+  const f2=$("#addform2");if(f2)f2.onsubmit=e=>{e.preventDefault();const n=$("#a2n").value.trim();if(!n)return;const kind=f2.dataset.kind,list=kind==="hook"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#a2d").value.trim()||"—",fits:$("#a2f").value.trim()||"Any",url:$("#a2u").value.trim(),bg:G("#232336","#0b0b10")};const cf=$("#a2c").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addKind=null;toast("Added");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
 function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
@@ -754,7 +755,7 @@ $("#main").addEventListener("click",e=>{
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
-  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);CLIPS[x.id]=URL.createObjectURL(f);x.clipName=f.name;toast("Clip uploaded");render();return}
+  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveFile(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip")}render();return}
   const num=v=>parseInt(String(v).replace(/[^0-9]/g,""),10);
   if(t.id==="cr-posts"&&num(t.value)>0)S.criteria.maxPosts=num(t.value);
   if(t.id==="cr-fol"&&num(t.value)>=0)S.criteria.minFollowers=num(t.value);
