@@ -17,13 +17,14 @@ Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 ## Job types
 
 ### `scroll`: find viral products on Instagram
-Input: `criteria` = `{maxPosts, minFollowers, minX, demand, lastPostDays}`, `count` (how many products to find, default 5), `maxMinutes` (time limit, default 20).
+Input: `criteria` = `{maxPosts, minFollowers, minX, demand, lastPostDays, minSharePct}`, `count` (how many products to find, default 5), `maxMinutes` (time limit, default 20).
 Note the start time (`date`) and check it as you go. When `maxMinutes` is reached, stop and write the result with whatever you found so far, even if it's fewer than `count`. The app stops you a few minutes after the limit, and anything not written by then is lost.
 Use Claude in Chrome (the user's Chrome, logged into their burner Instagram). Open Reels and scroll.
 For each reel, check the account: its newest post is at most `lastPostDays` days old (skip inactive accounts), at most `maxPosts` posts, at least `minFollowers` followers, and the reel's views at least `minX` times the account's usual views (median of its other reels).
+Also read the reel's share count (the paper-plane number; saves are private, ignore them). Keep only reels whose shares are at least `minSharePct`% of likes. If a reel hides its share count, don't reject it for that, but note `shares: "hidden"`.
 For reels that pass, open the comments and judge buying demand: share of comments asking where to buy, price, link, "need this", "ordered". `Low` < 15%, `Medium` 15–35%, `High` > 35%. Keep only reels at or above `criteria.demand`.
 Identify the product and find it on AliExpress (price). Stop at `count` finds or when the time limit is reached, whichever comes first.
-Result: `{"ok":true,"finds":[{"url","handle","posts","followers","views","x","likes","comments","posted","lastPost","product","supplier","hook","reveal","demand","buyPct","quotes":[3 real comments],"thumb"}]}`
+Result: `{"ok":true,"finds":[{"url","handle","posts","followers","views","x","likes","comments","shares","sharePct","posted","lastPost","product","supplier","hook","reveal","demand","buyPct","quotes":[3 real comments],"thumb"}]}`
 `x` is a string like `"124×"`. `lastPost` is like `"1 day ago"`. `thumb` is a screenshot or cover image of the reel.
 
 ### `names`: brand name ideas

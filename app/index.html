@@ -244,7 +244,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 
 function seed(){return{
   credits:216,
-  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium",count:5,minutes:20,lastPostDays:2},
+  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium",count:5,minutes:20,lastPostDays:2,minSharePct:5},
   finds:[
     {id:"f1",img:IMG.v2,handle:"cabin.family.fun",posts:11,followers:"18K",views:"8.4M",x:"466×",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",supplier:"AliExpress · $21.40",hook:"Dad snatches the kids' screens, then reveals the box",reveal:"Unbox → projector lights up the wall → family plays",demand:"High",buyPct:58,quotes:["Where can I buy this??","Need this for my boys for Christmas","Link pls 🙏"]},
     {id:"f2",img:"",bg:G("#3a1550","#0d2a4a"),handle:"glowroomco",posts:17,followers:"4.2K",views:"5.2M",x:"124×",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",supplier:"AliExpress · $9.80",hook:"Girlfriend turns off the light",reveal:"Room turns into a galaxy, slow pan",demand:"High",buyPct:41,quotes:["What's the name of it?","Ordered 2 already","My daughter would love this"]},
@@ -320,17 +320,18 @@ products(){
     <label class="f">Views vs account's usual (at least)<input type="text" inputmode="numeric" id="cr-x" value="${c.minX}×"></label>
     <label class="f">Buying demand in comments (at least)<select id="cr-dem">${["Low","Medium","High"].map(v=>`<option ${v===c.demand?"selected":""}>${v}</option>`).join("")}</select></label>
     <label class="f">Account's last post at most (days ago)<input type="text" inputmode="numeric" id="cr-days" value="${c.lastPostDays??2}"></label>
+    <label class="f">Shares vs likes at least (%)<input type="text" inputmode="numeric" id="cr-share" value="${c.minSharePct??5}%"></label>
     <label class="f">Find this many products<input type="text" inputmode="numeric" id="cr-count" value="${c.count||5}"></label>
     <label class="f">Scroll for at most (minutes)<input type="text" inputmode="numeric" id="cr-min" value="${c.minutes||20}"></label>
     ${S.ui.scrolling?`<button class="btn" type="button" data-a="stopscroll">Stop</button>`:`<button class="btn pri big" type="button" data-a="scroll" style="align-self:end">Start scrolling</button>`}
   </form>
-  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Checking each account: last post within ${c.lastPostDays??2} days, ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
+  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Shares at least ${c.minSharePct??5}% of likes. Checking each account: last post within ${c.lastPostDays??2} days, ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
   ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><a class="player" href="${ig(f)}" target="_blank" rel="noopener" style="${bg(f)}" title="Open on Instagram"><span class="play"></span><span class="ext">IG ↗</span></a>
     <div style="min-width:0"><div class="eyebrow">@${esc(f.handle)} · ${esc(f.posted)}</div><h3><a class="title-link" href="${ig(f)}" target="_blank" rel="noopener">${esc(f.product)}</a></h3><div class="note">${esc(f.supplier)}</div>
       <div class="checks">${f.lastPost?`<span class="ck">last post ${esc(f.lastPost)}</span>`:""}<span class="ck">${f.posts} posts</span><span class="ck">${esc(f.followers)} followers</span><span class="ck">${f.x} usual views</span></div>
       <dl class="why"><dt>Hook</dt><dd>${esc(f.hook)}</dd><dt>Reveal</dt><dd>${esc(f.reveal)}</dd></dl>
       <div class="demand">Demand: <span class="lvl ${f.demand}">${f.demand}</span> · ${f.buyPct}% of comments want to buy it${f.quotes.map(q=>`<q>${esc(q)}</q>`).join("")}</div></div>
-    <div class="act"><div class="nums"><div class="num hl"><small>vs usual</small><b>${f.x}</b></div><div class="num"><small>Views</small><b>${f.views}</b></div><div class="num"><small>Likes</small><b>${f.likes}</b></div><div class="num"><small>Comments</small><b>${f.comments}</b></div></div>
+    <div class="act"><div class="nums"><div class="num hl"><small>vs usual</small><b>${f.x}</b></div><div class="num"><small>Views</small><b>${f.views}</b></div><div class="num"><small>Likes</small><b>${f.likes}</b></div><div class="num"><small>Comments</small><b>${f.comments}</b></div>${f.shares?`<div class="num"><small>Shares</small><b>${esc(f.shares)}</b></div><div class="num hl"><small>Shares/likes</small><b>${esc(f.sharePct||"")}</b></div>`:""}</div>
       <div class="row fill"><button class="btn bad" data-a="skip" data-id="${f.id}">Skip</button><button class="btn pri" data-a="pick" data-id="${f.id}">Pick</button></div></div>
   </article>`).join(""):'<div class="empty">No finds right now. Press Start scrolling.</div>'}`;
 },
@@ -684,6 +685,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-x"&&num(t.value)>0){S.criteria.minX=num(t.value);t.value=S.criteria.minX+"×"}
   if(t.id==="cr-dem")S.criteria.demand=t.value;
   if(t.id==="cr-days"&&num(t.value)>=0)S.criteria.lastPostDays=num(t.value);
+  if(t.id==="cr-share"&&num(t.value)>=0){S.criteria.minSharePct=num(t.value);t.value=S.criteria.minSharePct+"%"}
   if(t.id==="cr-count"&&num(t.value)>0)S.criteria.count=Math.min(num(t.value),50);
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
