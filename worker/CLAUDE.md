@@ -15,6 +15,9 @@ Product knowledge: when the input has `notes` (text the user pasted, often a who
 Save any downloaded image or video under `media/` and return its path relative to this folder (e.g. `media/f1-thumb.jpg`), or return a public https URL.
 Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 
+## The user's playbook comes first
+`PLAYBOOK.md` in this folder is the user's own proven method for generating videos (models, settings, prompt templates, what to avoid, examples that worked). For `generate` and `fix` jobs, and for anything it covers, read it first and follow it. Where it disagrees with the defaults below, the playbook wins. If it says `(empty...)`, use the defaults.
+
 ## Job types
 
 ### `scroll`: find viral products on Instagram

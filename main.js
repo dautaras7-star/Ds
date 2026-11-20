@@ -39,6 +39,11 @@ function prepareWorkspace() {
   for (const d of ['jobs', 'results', 'media']) fs.mkdirSync(path.join(dir, d), { recursive: true });
   // Refresh the worker instructions on every start so app updates ship new rules.
   fs.copyFileSync(path.join(__dirname, 'worker', 'CLAUDE.md'), path.join(dir, 'CLAUDE.md'));
+  writePlaybook();
+}
+function writePlaybook() {
+  const pb = readSettings().playbook || '';
+  fs.writeFileSync(path.join(ws(), 'PLAYBOOK.md'), pb.trim() ? pb : '(empty: no playbook yet)\n');
 }
 
 // ---------- running Claude Code ----------
@@ -113,7 +118,7 @@ ipcMain.handle('cc:check', async () => {
 });
 
 ipcMain.handle('settings:get', () => ({ ...readSettings(), workspace: ws() }));
-ipcMain.handle('settings:set', (_e, s) => { writeSettings(s); return readSettings(); });
+ipcMain.handle('settings:set', (_e, s) => { writeSettings(s); try { writePlaybook(); } catch (err) { log('playbook: ' + err); } return readSettings(); });
 ipcMain.handle('ws:open', () => shell.openPath(ws()));
 ipcMain.handle('media:save', (_e, name, bytes) => {
   const safe = String(name || 'file').replace(/[^A-Za-z0-9._-]/g, '_').slice(-80);
