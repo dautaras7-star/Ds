@@ -115,6 +115,12 @@ ipcMain.handle('cc:check', async () => {
 ipcMain.handle('settings:get', () => ({ ...readSettings(), workspace: ws() }));
 ipcMain.handle('settings:set', (_e, s) => { writeSettings(s); return readSettings(); });
 ipcMain.handle('ws:open', () => shell.openPath(ws()));
+ipcMain.handle('media:save', (_e, name, bytes) => {
+  const safe = String(name || 'file').replace(/[^A-Za-z0-9._-]/g, '_').slice(-80);
+  const fn = Date.now().toString(36) + '-' + safe;
+  fs.writeFileSync(path.join(ws(), 'media', fn), Buffer.from(bytes));
+  return 'media/' + fn;
+});
 
 ipcMain.handle('job:start', (e, job) => {
   const s = readSettings();

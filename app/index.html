@@ -244,7 +244,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 
 function seed(){return{
   credits:216,
-  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium",count:5,minutes:20},
+  criteria:{maxPosts:20,minFollowers:500,minX:10,demand:"Medium",count:5,minutes:20,lastPostDays:2},
   finds:[
     {id:"f1",img:IMG.v2,handle:"cabin.family.fun",posts:11,followers:"18K",views:"8.4M",x:"466×",likes:"612K",comments:"9.1K",posted:"2 days ago",product:"Projector hunting game",supplier:"AliExpress · $21.40",hook:"Dad snatches the kids' screens, then reveals the box",reveal:"Unbox → projector lights up the wall → family plays",demand:"High",buyPct:58,quotes:["Where can I buy this??","Need this for my boys for Christmas","Link pls 🙏"]},
     {id:"f2",img:"",bg:G("#3a1550","#0d2a4a"),handle:"glowroomco",posts:17,followers:"4.2K",views:"5.2M",x:"124×",likes:"480K",comments:"6.3K",posted:"1 day ago",product:"Galaxy star projector",supplier:"AliExpress · $9.80",hook:"Girlfriend turns off the light",reveal:"Room turns into a galaxy, slow pan",demand:"High",buyPct:41,quotes:["What's the name of it?","Ordered 2 already","My daughter would love this"]},
@@ -279,7 +279,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -319,14 +319,15 @@ products(){
     <label class="f">Account has at least (followers)<input type="text" inputmode="numeric" id="cr-fol" value="${c.minFollowers}"></label>
     <label class="f">Views vs account's usual (at least)<input type="text" inputmode="numeric" id="cr-x" value="${c.minX}×"></label>
     <label class="f">Buying demand in comments (at least)<select id="cr-dem">${["Low","Medium","High"].map(v=>`<option ${v===c.demand?"selected":""}>${v}</option>`).join("")}</select></label>
+    <label class="f">Account's last post at most (days ago)<input type="text" inputmode="numeric" id="cr-days" value="${c.lastPostDays??2}"></label>
     <label class="f">Find this many products<input type="text" inputmode="numeric" id="cr-count" value="${c.count||5}"></label>
     <label class="f">Scroll for at most (minutes)<input type="text" inputmode="numeric" id="cr-min" value="${c.minutes||20}"></label>
     ${S.ui.scrolling?`<button class="btn" type="button" data-a="stopscroll">Stop</button>`:`<button class="btn pri big" type="button" data-a="scroll" style="align-self:end">Start scrolling</button>`}
   </form>
-  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Checking each account: ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
+  ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Checking each account: last post within ${c.lastPostDays??2} days, ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
   ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><a class="player" href="${ig(f)}" target="_blank" rel="noopener" style="${bg(f)}" title="Open on Instagram"><span class="play"></span><span class="ext">IG ↗</span></a>
     <div style="min-width:0"><div class="eyebrow">@${esc(f.handle)} · ${esc(f.posted)}</div><h3><a class="title-link" href="${ig(f)}" target="_blank" rel="noopener">${esc(f.product)}</a></h3><div class="note">${esc(f.supplier)}</div>
-      <div class="checks"><span class="ck">${f.posts} posts</span><span class="ck">${esc(f.followers)} followers</span><span class="ck">${f.x} usual views</span></div>
+      <div class="checks">${f.lastPost?`<span class="ck">last post ${esc(f.lastPost)}</span>`:""}<span class="ck">${f.posts} posts</span><span class="ck">${esc(f.followers)} followers</span><span class="ck">${f.x} usual views</span></div>
       <dl class="why"><dt>Hook</dt><dd>${esc(f.hook)}</dd><dt>Reveal</dt><dd>${esc(f.reveal)}</dd></dl>
       <div class="demand">Demand: <span class="lvl ${f.demand}">${f.demand}</span> · ${f.buyPct}% of comments want to buy it${f.quotes.map(q=>`<q>${esc(q)}</q>`).join("")}</div></div>
     <div class="act"><div class="nums"><div class="num hl"><small>vs usual</small><b>${f.x}</b></div><div class="num"><small>Views</small><b>${f.views}</b></div><div class="num"><small>Likes</small><b>${f.likes}</b></div><div class="num"><small>Comments</small><b>${f.comments}</b></div></div>
@@ -335,7 +336,14 @@ products(){
 },
 my(){
   if(S.ui.prod&&P(S.ui.prod))return V.product(P(S.ui.prod));
-  return `<div class="head"><div><h1>My products</h1><p class="sub">Each product becomes its own brand: name, logo, Facebook cover, product photos and box. Open one to set it up or see its finished videos.</p></div><span class="example">Example data</span></div>
+  return `<div class="head"><div><h1>My products</h1><p class="sub">Each product becomes its own brand: name, logo, Facebook cover, product photos and box. Pick products from viral finds or add your own.</p></div><div class="row"><span class="example">Example data</span><button class="btn pri" data-a="addprod">Add product</button></div></div>
+  ${S.ui.addProd?`<form class="addform panel" id="prodform" style="margin-bottom:18px">
+    <label class="f">What is the product?<input type="text" id="np-name" required placeholder="e.g. Heated desk pad"></label>
+    <label class="f">Niche<input type="text" id="np-niche" placeholder="e.g. Home office · gifts for coworkers"></label>
+    <label class="f full">Description<textarea id="np-desc" placeholder="What it does, who it's for, what makes it special"></textarea></label>
+    <label class="f">Product photos<input type="file" id="np-photos" accept="image/*" multiple></label>
+    <label class="f">Brand name (leave empty to let Claude suggest one)<input type="text" id="np-brand" placeholder="optional"></label>
+    <div class="row full"><button class="btn" type="button" data-a="addprodclose">Cancel</button><button class="btn pri" type="submit">Add product</button></div></form>`:""}
   <div class="pgrid">${S.products.map(p=>{const s=pStep(p),fin=S.gens.filter(g=>g.pid===p.id&&g.st==="final").length;return `<div class="pcard panel" data-a="open" data-id="${p.id}" role="button" tabindex="0" style="cursor:pointer">
     <div class="row" style="flex-wrap:nowrap">${logo(p)}<div style="min-width:0"><h3 style="font-size:17px">${esc(p.name||"Not named yet")}</h3><div class="note">${esc(p.from)}</div></div></div>
     <div class="steps" aria-label="Setup ${s} of 3">${[0,1,2].map(i=>`<span class="${i<s?"on":""}"></span>`).join("")}</div>
@@ -345,7 +353,7 @@ my(){
 product(p){
   const kitItem=(k,label,art,cls="")=>{const st=p.kit[k];return `<div class="asset ${cls}"><div class="art ${k==="cover"?"wide":"sq"}" style="background:${st==="todo"?"var(--panel2)":"var(--panel2)"}">${st==="todo"?'<span class="note">Not generated</span>':st==="gen"?'<span class="scrolling" style="font-size:12px"><span class="spin"></span>Generating</span>':(p.art&&p.art[k]?`<img src="${esc(media(p.art[k]))}" alt="" style="width:100%;height:100%;object-fit:cover">`:art)}</div>
     <div class="row" style="justify-content:space-between"><b style="font-size:13px">${label}</b>${st==="ok"?'<span class="pill ok">Approved</span>':st==="pending"?'<span class="pill warn">Needs your OK</span>':""}</div>
-    ${!p.name?'<div class="note">Pick a name first</div>':st==="todo"?`<button class="btn" data-a="kitgen" data-k="${k}">Generate</button>`:st==="pending"?`<div class="row fill"><button class="btn" data-a="kitgen" data-k="${k}">Redo</button><button class="btn ok" data-a="kitok" data-k="${k}">Approve</button></div>`:st==="ok"?`<button class="btn" data-a="kitgen" data-k="${k}">Regenerate</button>`:""}</div>`};
+    ${!p.name?'<div class="note">Pick a name first</div>':st==="gen"?"":S.ui.kitFix===k?`<label class="note" for="kf">What should change?</label><textarea id="kf" placeholder="e.g. make the logo simpler, use a darker blue"></textarea><div class="row fill"><button class="btn" data-a="kitfixno">Cancel</button><button class="btn pri" data-a="kitfixgo" data-k="${k}">Regenerate</button></div>`:`<div class="row fill">${st==="todo"?`<button class="btn" data-a="kitgen" data-k="${k}">Generate</button>`:st==="pending"?`<button class="btn cy" data-a="kitfix" data-k="${k}">Fix</button><button class="btn ok" data-a="kitok" data-k="${k}">Approve</button>`:`<button class="btn cy" data-a="kitfix" data-k="${k}">Fix</button>`}<label class="btn">Upload<input type="file" accept="image/*" data-kitup="${k}" style="display:none"></label></div>`}</div>`};
   const mono=`<span class="mono" style="font-size:40px;background:${p.color};width:70%;height:70%;border-radius:22%;display:grid;place-items:center">${initials(p.name)}</span>`;
   const cover=`<div style="position:absolute;inset:0;background:linear-gradient(120deg,${p.color},#0b0b10 75%)"></div><span class="mono" style="position:relative;font-size:26px">${esc(p.name)}</span>`;
   const collage=`<div class="collage"><div>front</div><div>side</div><div>top</div><div>detail</div></div>`;
@@ -370,8 +378,8 @@ product(p){
       ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab">${glab(g)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
     </section>
   </div>
-  <aside class="side"><div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Socials</dt><dd>${esc(p.handles||"—")}</dd></dl></div>
-    <div class="panel"><div class="player" style="${bg(p)};width:140px"><span class="play"></span></div><p class="note">Source viral video</p></div>
+  <aside class="side">${p.desc||(p.photos&&p.photos.length)?`<div class="panel">${p.desc?`<p style="margin:0 0 10px">${esc(p.desc)}</p>`:""}${p.photos&&p.photos.length?`<div class="row">${p.photos.map(ph=>`<img src="${esc(media(ph))}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join("")}</div>`:""}</div>`:""}<div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Socials</dt><dd>${esc(p.handles||"—")}</dd></dl></div>
+    ${p.variation==="My own product"&&!p.url?"":`<div class="panel">${p.url?`<a class="player" href="${esc(p.url)}" target="_blank" rel="noopener" style="${bg(p)};width:140px">`:`<div class="player" style="${bg(p)};width:140px">`}<span class="play"></span>${p.url?"</a>":"</div>"}<p class="note">Source viral video${p.url?" · opens Instagram":""}</p></div>`}
     ${pStep(p)===3?`<button class="btn pri big" data-a="toconcept" data-id="${p.id}">Make concepts →</button>`:'<p class="note">Finish all 3 steps to start making videos.</p>'}
   </aside></div>`;
 },
@@ -496,13 +504,14 @@ if(window.studio)window.studio.onJobEvent(m=>{
   if(!r.ok)toast(r.error||"Job failed");
   render();
 });
-function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche},r=>{if(r.ok)p.nameOpts=r.names||[]})}
-function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box].filter(Boolean).map(x=>/^https?:/.test(x)?x:x)}
+function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||""},r=>{if(r.ok)p.nameOpts=r.names||[]})}
+function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box,...(pr.photos||[])].filter(Boolean)}
 const LIVE={
   scroll(){S.ui.scrolling=true;runJob("scroll",`Scrolling Instagram · up to ${S.criteria.count||5} products · ${S.criteria.minutes||20} min`,{criteria:S.criteria,count:S.criteria.count||5,maxMinutes:S.criteria.minutes||20},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
   stopscroll(){Object.keys(JOBS).filter(k=>JOBS[k].type==="scroll").forEach(k=>window.studio.cancelJob(k));S.ui.scrolling=false},
   morenames(){askNames(P(S.ui.prod))},
-  kitgen(b){const p=P(S.ui.prod),k=b.dataset.k;p.kit[k]="gen";runJob("brandkit",`${k} · ${p.name}`,{asset:k,name:p.name,product:p.from,variation:p.variation,color:p.color,refs:k==="collage"?[]:refsOf(p)},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"})},
+  kitgen(b){kitRun(P(S.ui.prod),b.dataset.k)},
+  _oldkitgen(b){const p=P(S.ui.prod),k=b.dataset.k;p.kit[k]="gen";runJob("brandkit",`${k} · ${p.name}`,{asset:k,name:p.name,product:p.from,variation:p.variation,color:p.color,refs:k==="collage"?[]:refsOf(p)},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"})},
   generate(){
     const c=S.concept,pr=P(c.pid),hk=i=>S.hooks.find(x=>x.id===i),rv=i=>S.reveals.find(x=>x.id===i);let n=0;
     c.hooks.forEach(h=>c.reveals.forEach(rId=>{
@@ -562,6 +571,17 @@ function findClips(kind){
     JOBS[id].kind=kind;
   }else{S.ui.finding=kind;later(2500,()=>{S.ui.finding=null;list.push({id:uid(),name:kind==="hook"?"\"Don't buy this…\" reverse psychology":"Before/after split screen",desc:kind==="hook"?"Creator warns viewers not to buy it, then shows why everyone does.":"Left half: problem. Right half: product fixing it.",fits:"Most products",url:"https://www.instagram.com/",views:"3.1M",bg:G("#232336","#0b0b10")});toast(`Added 1 viral ${word} (example)`)})}
 }
+async function saveFile(file){
+  if(window.studio&&window.studio.saveMedia){const buf=await file.arrayBuffer();return await window.studio.saveMedia(file.name,buf)}
+  return URL.createObjectURL(file);
+}
+function kitRun(p,k,note){
+  p.kit[k]="gen";S.ui.kitFix=null;
+  if(MODE==="live"){
+    if(!window.studio){toast("Live mode only works in the desktop app");p.kit[k]=p.art&&p.art[k]?"pending":"todo";return}
+    runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
+  }else{S.credits+=4;later(1500,()=>{p.kit[k]="pending"})}
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
@@ -581,6 +601,11 @@ function render(){
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
   $("#main").innerHTML=warn+V[v]();counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
+  const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
+    const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
+    const brand=$("#np-brand").value.trim();
+    const np={id:uid(),from:nm,url:"",img:photos[0]?media(photos[0]):"",bg:G("#232336","#0b0b10"),variation:"My own product",niche:$("#np-niche").value.trim(),desc:$("#np-desc").value.trim(),photos,nameOpts:[],name:brand,color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:photos.length?"todo":"todo",box:"todo"},supplier:"—",handles:brand?"@"+brand.toLowerCase().replace(/\s+/g,""):""};
+    S.products.unshift(np);S.ui.addProd=false;S.ui.prod=np.id;toast("Product added");render();if(!brand&&MODE==="live")askNames(np)};
   const f2=$("#addform2");if(f2)f2.onsubmit=e=>{e.preventDefault();const n=$("#a2n").value.trim();if(!n)return;const kind=f2.dataset.kind,list=kind==="hook"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#a2d").value.trim()||"—",fits:$("#a2f").value.trim()||"Any",url:$("#a2u").value.trim(),bg:G("#232336","#0b0b10")};const cf=$("#a2c").files[0];if(cf){CLIPS[nx.id]=URL.createObjectURL(cf);nx.clipName=cf.name}list.push(nx);S.ui.addKind=null;toast("Added");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
@@ -637,6 +662,11 @@ $("#main").addEventListener("click",e=>{
     case"findclips":findClips(b.dataset.v);break;
     case"addc":S.ui.addKind=b.dataset.v;break;
     case"addcclose":S.ui.addKind=null;break;
+    case"addprod":S.ui.addProd=true;break;
+    case"addprodclose":S.ui.addProd=false;break;
+    case"kitfix":S.ui.kitFix=b.dataset.k;break;
+    case"kitfixno":S.ui.kitFix=null;break;
+    case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
     case"addopen":S.ui.addOpen=true;break;
     case"addclose":S.ui.addOpen=false;break;
@@ -644,14 +674,16 @@ $("#main").addEventListener("click",e=>{
   }
   render();
 });
-$("#main").addEventListener("change",e=>{
+$("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
   if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);CLIPS[x.id]=URL.createObjectURL(f);x.clipName=f.name;toast("Clip uploaded");render();return}
   const num=v=>parseInt(String(v).replace(/[^0-9]/g,""),10);
   if(t.id==="cr-posts"&&num(t.value)>0)S.criteria.maxPosts=num(t.value);
   if(t.id==="cr-fol"&&num(t.value)>=0)S.criteria.minFollowers=num(t.value);
   if(t.id==="cr-x"&&num(t.value)>0){S.criteria.minX=num(t.value);t.value=S.criteria.minX+"×"}
   if(t.id==="cr-dem")S.criteria.demand=t.value;
+  if(t.id==="cr-days"&&num(t.value)>=0)S.criteria.lastPostDays=num(t.value);
   if(t.id==="cr-count"&&num(t.value)>0)S.criteria.count=Math.min(num(t.value),50);
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
