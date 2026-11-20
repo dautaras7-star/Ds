@@ -279,7 +279,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null,ideasFor:null}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -365,8 +365,18 @@ product(p){
   <div class="head"><div class="row" style="flex-wrap:nowrap">${logo(p)}<div><h1>${esc(p.name||"Not named yet")}</h1><p class="sub">From viral find: ${esc(p.from)}</p></div></div><button class="btn bad" data-a="delprod" data-id="${p.id}">Remove product</button></div>
   <div class="detail"><div>
     <section class="step panel"><div class="step-h"><span class="k ${p.variation?"done":""}">1</span><h3>Variation or new niche</h3></div>
-      <p class="note" style="margin-top:-4px">Ask for a variation of the product or take it into another niche. I'll suggest options.</p>
-      <div class="opts">${vars.map(v=>`<button class="chip" aria-pressed="${p.variation===v}" data-a="var" data-v="${esc(v)}">${esc(v)}</button>`).join("")}</div>
+      <p class="note" style="margin-top:-4px">Let Claude brainstorm variations of this product and new niches it could sell in, then pick one. Or write your own.</p>
+      ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="ideas"&&j.pid===p.id)||S.ui.ideasFor===p.id;
+      const ideas=p.ideas||[];
+      return `<div class="row" style="margin-bottom:10px">${busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Brainstorming variations and niches…</span>`:`<button class="btn pri" data-a="ideas">${ideas.length?"More ideas":"Brainstorm ideas"}</button>`}${p.variation?`<span class="note">Picked: <b style="color:var(--fg)">${esc(p.variation)}</b></span>`:""}</div>
+      ${ideas.length?`<div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${ideas.map((it,i)=>`<div class="lcard" style="display:block" aria-pressed="${p.variation===it.title}">
+        <span class="pill ${it.type==="niche"?"pk":"cy"}">${it.type==="niche"?"New niche":"Variation"}</span>
+        <h4 style="margin-top:6px">${esc(it.title)}</h4>
+        ${it.audience?`<p><b style="color:var(--fg)">For:</b> ${esc(it.audience)}</p>`:""}
+        ${it.angle?`<p><b style="color:var(--fg)">Angle:</b> ${esc(it.angle)}</p>`:""}
+        ${it.why?`<p><b style="color:var(--fg)">Why it sells:</b> ${esc(it.why)}</p>`:""}
+        <div class="tools"><button class="btn ${p.variation===it.title?"cy":"pri"}" data-a="pickidea" data-i="${i}">${p.variation===it.title?"Picked ✓":"Pick this"}</button></div>
+      </div>`).join("")}</div>`:`<p class="note">No ideas yet. Press Brainstorm ideas.</p>`}`})()}
       <label class="f" style="margin-top:10px">Or describe your own<input type="text" id="varown" placeholder="e.g. make it for cat owners"></label>
     </section>
     <section class="step panel"><div class="step-h"><span class="k ${p.name?"done":""}">2</span><h3>Product name</h3></div>
@@ -583,6 +593,17 @@ function kitRun(p,k,note){
     runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
   }else{S.credits+=4;later(1500,()=>{p.kit[k]="pending"})}
 }
+function brainstorm(p){
+  const known=(p.ideas||[]).map(x=>x.title);
+  if(MODE==="live"){
+    if(!window.studio){toast("Live mode only works in the desktop app");return}
+    const id=runJob("ideas","Ideas · "+(p.name||p.from).slice(0,40),{product:p.from,description:p.desc||"",niche:p.niche||"",supplier:p.supplier||"",source:p.url||"",count:6,known},r=>{if(r.ok){p.ideas=[...(p.ideas||[]),...(r.ideas||[])];toast(`${(r.ideas||[]).length} new ideas`)}});
+    JOBS[id].pid=p.id;
+  }else{S.ui.ideasFor=p.id;later(1500,()=>{S.ui.ideasFor=null;p.ideas=[...(p.ideas||[]),
+    {type:"variation",title:"Premium bundle: 4 targets + 2 blasters",audience:"Parents buying a big Christmas gift",angle:"Whole-family game night",why:"Higher price, feels like a bigger gift"},
+    {type:"niche",title:"Office team-building game",audience:"Remote teams and office managers",angle:"Friday fun at work",why:"New audience, nobody sells it this way yet"},
+    {type:"niche",title:"Cat chase toy version",audience:"Cat owners",angle:"Moving glowing target the cat hunts",why:"Pet videos go viral and buyers are impulsive"}]})}
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
@@ -668,6 +689,8 @@ $("#main").addEventListener("click",e=>{
     case"kitfix":S.ui.kitFix=b.dataset.k;break;
     case"kitfixno":S.ui.kitFix=null;break;
     case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
+    case"ideas":brainstorm(p);break;
+    case"pickidea":{const it=(p.ideas||[])[+b.dataset.i];if(it){if(it.type==="niche")p.niche=it.audience||it.title;setVar(p,it.title);return}break}
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
     case"addopen":S.ui.addOpen=true;break;
     case"addclose":S.ui.addOpen=false;break;
