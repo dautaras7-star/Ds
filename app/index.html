@@ -72,7 +72,10 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .empty{padding:40px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px}
 
 .player{aspect-ratio:9/16;max-width:100%;border-radius:10px;position:relative;overflow:hidden;background:var(--panel2) center/cover;border:1px solid var(--line)}
-.player::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,.65))}
+.player::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,.65));pointer-events:none}
+.player:has(video)::after{display:none}
+.p-info,.status{pointer-events:none}
+.player video{z-index:1}
 .play{position:absolute;inset:0;margin:auto;width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:1}
 .play::before{content:"";border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px}
 .p-info{position:absolute;left:8px;right:8px;bottom:6px;z-index:1;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px}
@@ -455,7 +458,7 @@ finals(){
   return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
   <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
   ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
-    <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>
+    <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
     ${g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
 },
 library(){
@@ -696,6 +699,15 @@ function brainstorm(p){
     {type:"niche",title:"Office team-building game",audience:"Remote teams and office managers",angle:"Friday fun at work",why:"New audience, nobody sells it this way yet"},
     {type:"niche",title:"Cat chase toy version",audience:"Cat owners",angle:"Moving glowing target the cat hunts",why:"Pet videos go viral and buyers are impulsive"}]})}
 }
+function viewModal(){
+  const g=S.gens.find(x=>x.id===S.ui.view);if(!g||!g.video)return "";
+  const pr=P(g.pid);
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="Watch video" data-a="closeview"><div class="modal-box" style="width:auto;max-width:min(560px,100%);align-items:center" data-stop="1">
+    <div class="row" style="justify-content:space-between;width:100%;flex-wrap:nowrap"><div><div class="eyebrow">${esc(pr?pr.name:"")} · ${esc(g.engine||"")}</div><h2 style="font-size:18px;margin-top:2px">${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</h2></div><button class="btn" data-a="closeview" aria-label="Close">✕</button></div>
+    <video src="${esc(media(g.video))}" controls autoplay playsinline style="max-height:calc(100vh - 220px);max-width:100%;aspect-ratio:9/16;border-radius:12px;background:#000"></video>
+    ${g.prompt?`<details style="width:100%"><summary class="note" style="cursor:pointer">Prompt used</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:200px;overflow:auto">${esc(g.prompt)}</pre></details>`:""}
+  </div></div>`;
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
@@ -703,7 +715,7 @@ function gTile(g){
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${act}</div>`;
+  return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
 }
 
 function route(){const h=(location.hash||"#products").slice(1);return V[h]&&h!=="product"?h:"products"}
@@ -713,7 +725,7 @@ function render(){
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
-  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"");counts();save();jobsUI();
+  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"");counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
@@ -786,6 +798,8 @@ $("#main").addEventListener("click",e=>{
     case"ideas":brainstorm(p);break;
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
+    case"watch":S.ui.view=id;break;
+    case"closeview":if(e.target.closest("[data-stop]")&&!e.target.closest("button"))return;S.ui.view=null;break;
     case"nonniche":setVar(p,"As is · no new niche");return;
     case"varownsave":{const v=$("#varown").value.trim();if(!v){toast("Describe the variation or niche first");return}setVar(p,v);return}
     case"ownnamesave":{const v=$("#ownname").value.trim();if(!v){toast("Type a name first");return}if(p.name!==v){p.unOpts=null;p.social=p.social||{}}p.name=v;toast("Name saved");break}
@@ -820,7 +834,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&S.ui.genFor){S.ui.genFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view)){S.ui.genFor=null;S.ui.view=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 boot();
 </script>
 </body>
