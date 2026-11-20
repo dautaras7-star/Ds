@@ -36,6 +36,12 @@ Input: `product`, `description`, `niche`, `supplier`, `source` (viral reel url),
 Think like a dropshipper: what else could this exact product (or a small change to it) be sold as? Mix variations of the product (bundle, premium, theme, size, color, add-on) and new niches/audiences it could be marketed to (pets, office, seniors, gifts for X, a hobby). Prefer ideas that are easy to show in a short video and aren't saturated.
 Result: `{"ok":true,"ideas":[{"type":"variation"|"niche","title":"short name","audience":"who buys it","angle":"the hook/selling angle","why":"why it could sell"}]}`
 
+### `competitors`: does this variation/niche already exist?
+Input: `product`, `description`, `idea` (`{type,title,audience,angle}`), `source`.
+Search for stores and creators already selling this product as this variation or to this niche: Instagram (Claude in Chrome: hashtags, reels search), Google/web search, Amazon, TikTok Shop if visible, and Meta Ad Library (facebook.com/ads/library) for active ads.
+Judge: `open` (nobody really sells it this way), `some` (a few small sellers, room left), `crowded` (many sellers or big brands, lots of ads).
+Result: `{"ok":true,"verdict":"open"|"some"|"crowded","summary":"one plain sentence","competitors":[{"name","url","where":"Instagram|Amazon|Ad Library|web","stats":"followers/views/reviews/ads running","price":"$"}]}` (up to 8, strongest first)
+
 ### `brandkit`: one brand asset with Higgsfield
 Input: `asset` (`logo` | `collage` | `box` | `cover`), `name`, `product`, `niche`, `description`, `variation`, `color`, `refs` (product photo paths/URLs, may include the user's own photos; use them as references), `note` and `previous` (when set, this is a fix: start from `previous` and change only what `note` asks).
 - `logo`: square logo mark for social profiles, simple, readable at small size.

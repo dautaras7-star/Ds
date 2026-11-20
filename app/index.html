@@ -375,7 +375,9 @@ product(p){
         ${it.audience?`<p><b style="color:var(--fg)">For:</b> ${esc(it.audience)}</p>`:""}
         ${it.angle?`<p><b style="color:var(--fg)">Angle:</b> ${esc(it.angle)}</p>`:""}
         ${it.why?`<p><b style="color:var(--fg)">Why it sells:</b> ${esc(it.why)}</p>`:""}
-        <div class="tools"><button class="btn ${p.variation===it.title?"cy":"pri"}" data-a="pickidea" data-i="${i}">${p.variation===it.title?"Picked ✓":"Pick this"}</button></div>
+        ${it.comp?`<div class="demand" style="margin-top:8px"><b class="lvl ${it.comp.verdict==="open"?"High":it.comp.verdict==="some"?"Medium":"Low"}">${it.comp.verdict==="open"?"No competitors found":it.comp.verdict==="some"?"A few competitors":"Crowded"}</b>${it.comp.summary?` · ${esc(it.comp.summary)}`:""}
+          ${(it.comp.competitors||[]).slice(0,5).map(c=>`<div style="margin-top:4px;font-size:12px">${c.url?`<a class="title-link" href="${esc(c.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${esc(c.name||c.url)} ↗</a>`:esc(c.name||"")}<span class="note"> · ${esc([c.where,c.stats,c.price].filter(Boolean).join(" · "))}</span></div>`).join("")}</div>`:""}
+        <div class="tools"><button class="btn ${p.variation===it.title?"cy":"pri"}" data-a="pickidea" data-i="${i}">${p.variation===it.title?"Picked ✓":"Pick this"}</button>${Object.values(JOBS).some(j=>j.type==="competitors"&&j.pid===p.id&&j.idx===i)||it.compBusy?`<span class="scrolling" style="font-size:12px"><span class="spin"></span>Searching…</span>`:`<button class="btn" data-a="comp" data-i="${i}">${it.comp?"Search again":"Search for competitors"}</button>`}</div>
       </div>`).join("")}</div>`:`<p class="note">No ideas yet. Press Brainstorm ideas.</p>`}`})()}
       <label class="f" style="margin-top:10px">Or describe your own<input type="text" id="varown" placeholder="e.g. make it for cat owners"></label>
     </section>
@@ -593,6 +595,14 @@ function kitRun(p,k,note){
     runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
   }else{S.credits+=4;later(1500,()=>{p.kit[k]="pending"})}
 }
+function compSearch(p,i){
+  const it=(p.ideas||[])[i];if(!it)return;
+  if(MODE==="live"){
+    if(!window.studio){toast("Live mode only works in the desktop app");return}
+    const id=runJob("competitors","Competitors · "+it.title.slice(0,40),{product:p.from,description:p.desc||"",idea:it,source:p.url||""},r=>{if(r.ok)it.comp={verdict:r.verdict,summary:r.summary,competitors:r.competitors||[]}});
+    JOBS[id].pid=p.id;JOBS[id].idx=i;
+  }else{it.compBusy=true;later(1500,()=>{it.compBusy=false;it.comp={verdict:i%3===0?"crowded":i%3===1?"open":"some",summary:"Example result",competitors:[{name:"@example.store",url:"https://www.instagram.com/",where:"Instagram",stats:"12K followers"}]}})}
+}
 function brainstorm(p){
   const known=(p.ideas||[]).map(x=>x.title);
   if(MODE==="live"){
@@ -690,6 +700,7 @@ $("#main").addEventListener("click",e=>{
     case"kitfixno":S.ui.kitFix=null;break;
     case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
     case"ideas":brainstorm(p);break;
+    case"comp":compSearch(p,+b.dataset.i);break;
     case"pickidea":{const it=(p.ideas||[])[+b.dataset.i];if(it){if(it.type==="niche")p.niche=it.audience||it.title;setVar(p,it.title);return}break}
     case"tab":S.ui.libTab=b.dataset.v;S.ui.addOpen=false;break;
     case"addopen":S.ui.addOpen=true;break;
