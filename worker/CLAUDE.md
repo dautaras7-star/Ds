@@ -12,6 +12,7 @@ Do the job, write the result file, and stop. Nobody reads your chat output; only
 4. While working, print short progress lines (e.g. `Checking account 7 of 20`). The app shows your latest line.
 
 Product knowledge: when the input has `notes` (text the user pasted, often a whole research chat) or `note_files` (paths of attached documents), read them first and use what they say about the product, customer, selling points and tone. They outrank your own guesses.
+As soon as you submit any Higgsfield generation or upscale, immediately write `results/<id>.partial.json` with `{"job_id":"<higgsfield job id>"}`. If you're stopped before finishing, the app can still find the video. Then wait for it to finish and write the normal result file.
 Save any downloaded image or video under `media/` and return its path relative to this folder (e.g. `media/f1-thumb.jpg`), or return a public https URL.
 Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 
@@ -102,6 +103,11 @@ Input: `kind` (`hook` | `reveal`), `count`, `criteria`, `known` (names the user 
 Use Claude in Chrome on Instagram Reels. Look for outlier reels of physical products (same `criteria` as `scroll`). For each, describe the opening hook (first 2–3 seconds) or the reveal (how the product is shown) as a reusable format, not tied to that product.
 Also save a short preview of just the hook (first 3 seconds) or the reveal part as `media/<something>.mp4`: download the reel (e.g. with yt-dlp if installed, or screen-record is not needed: skip the clip if you can't download), then cut it with ffmpeg if available (`ffmpeg -ss <start> -t 3 -i in.mp4 -an -vf scale=360:-2 out.mp4`). Leave `clip` empty if you can't.
 Result: `{"ok":true,"items":[{"name":"short format name","desc":"how it works, shot by shot","fits":"product types it suits","url":"reel url","views":"2.4M","thumb":"<path or url>","clip":"media/<file>.mp4 or empty"}]}`
+
+### `recover`: bring back a video that finished on Higgsfield but never reached the app
+Input: `kind` (`generate` | `fix` | `upscale`), `higgsfield_job_id` (may be empty), `since` (ISO time the job started), `product`, `clip` (hook/reveal name), `engine`, `note`.
+If `higgsfield_job_id` is set, look that job up and wait for it to finish. Otherwise list the user's recent Higgsfield video generations created after `since` and pick the one that matches (engine, product, the hook/reveal, and the fix note). Don't generate anything new.
+Result: same shape as `generate` (or `upscale` when `kind` is `upscale`). If nothing matches, `{"ok":false,"error":"No matching video found on Higgsfield after <time>."}`
 
 ### `ping`
 Connection test. Check which tools you have. Result: `{"ok":true,"higgsfield":bool,"chrome":bool,"drive":bool}`

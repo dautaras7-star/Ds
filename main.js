@@ -174,6 +174,15 @@ ipcMain.handle('job:start', (e, job) => {
   return { started: true };
 });
 
+// Read a finished job's result from disk (for jobs that ended while the app was closed).
+ipcMain.handle('job:result', (_e, id) => {
+  const safe = String(id).replace(/[^A-Za-z0-9_-]/g, '');
+  for (const f of [safe + '.json', safe + '.partial.json']) {
+    try { return { file: f, ...JSON.parse(fs.readFileSync(path.join(ws(), 'results', f), 'utf8')) }; } catch (_) { /* not there */ }
+  }
+  return null;
+});
+ipcMain.handle('job:running', () => [...running.keys()]);
 ipcMain.handle('job:cancel', (_e, id) => {
   const c = running.get(id);
   if (c) { try { c.kill(); } catch (_) {} }
