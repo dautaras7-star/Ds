@@ -208,6 +208,8 @@ code.cmd{display:block;background:var(--bg);border:1px solid var(--line);border-
 .check{display:flex;align-items:center;gap:8px;font-size:13px}
 ol.steps-list{margin:6px 0 0;padding-left:18px;color:var(--muted)}
 ol.steps-list li{margin:4px 0}
+.modal{position:fixed;inset:41px 0 0 0;background:rgba(5,5,10,.72);display:grid;place-items:center;z-index:30;padding:20px}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(720px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:12px}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -365,6 +367,11 @@ product(p){
   return `<button class="back" data-a="closeprod">← My products</button>
   <div class="head"><div class="row" style="flex-wrap:nowrap">${logo(p)}<div><h1>${esc(p.name||"Not named yet")}</h1><p class="sub">From viral find: ${esc(p.from)}</p></div></div><button class="btn bad" data-a="delprod" data-id="${p.id}">Remove product</button></div>
   <div class="detail"><div>
+    <section class="step panel"><div class="step-h"><h3>Product knowledge</h3><span class="note" style="margin-left:auto">${p.notes?`${p.notes.length.toLocaleString()} characters saved`:"Empty"}</span></div>
+      <p class="note" style="margin-top:-4px">Paste everything you know about this product: research, a Claude chat about it, target customer, selling points, prices. Claude reads this for every job on this product.</p>
+      <textarea id="pnotes" style="min-height:${p.notes?160:90}px" placeholder="Paste here…">${esc(p.notes||"")}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn pri" data-a="savenotes">Save</button><label class="btn">Attach files<input type="file" multiple data-notefiles="1" style="display:none"></label>${(p.noteFiles||[]).map((f,i)=>`<span class="pill">${esc(f.name)} <button data-a="rmnotefile" data-i="${i}" aria-label="Remove ${esc(f.name)}" style="color:var(--bad)">✕</button></span>`).join("")}</div>
+    </section>
     <section class="step panel"><div class="step-h"><span class="k ${p.variation?"done":""}">1</span><h3>Variation or new niche</h3></div>
       <p class="note" style="margin-top:-4px">Let Claude brainstorm variations of this product and new niches it could sell in, then pick one. Or write your own.</p>
       ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="ideas"&&j.pid===p.id)||S.ui.ideasFor===p.id||p._ideasBusy;
@@ -509,8 +516,8 @@ function libCard(x,kind,mode){
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:110px 1fr">
     <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<span class="note" style="position:absolute;inset:auto 0 8px;text-align:center;z-index:1;font-size:10px">No clip</span>`}</div>
     <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
-      ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}${mode==="pick"&&S.ui.genFor===x.id?`<div class="tools"><span class="note" style="align-self:center">Generate with</span><button class="btn pri" data-a="gen1" data-id="${x.id}" data-k="${kind}" data-v="Seedance">Seedance</button><button class="btn pri" data-a="gen1" data-id="${x.id}" data-k="${kind}" data-v="Genjutsu">Genjutsu</button><button class="btn" data-a="gencancel">Cancel</button></div>`:""}
-      <div class="tools">${mode==="pick"&&S.ui.genFor!==x.id?`<button class="btn cy" data-a="genask" data-id="${x.id}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
+      ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}
+      <div class="tools">${mode==="pick"?`<button class="btn cy" data-a="genask" data-id="${x.id}" data-k="${kind}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
 }
 function jobsUI(){
@@ -533,7 +540,7 @@ if(window.studio)window.studio.onJobEvent(m=>{
   if(!r.ok)toast(r.error||"Job failed");
   render();
 });
-function askNames(p){p._namesBusy=true;const id=runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||"",known:p.nameOpts||[]},r=>{p._namesBusy=false;if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh]}});if(JOBS[id])JOBS[id].pid=p.id}
+function askNames(p){p._namesBusy=true;const id=runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path),known:p.nameOpts||[]},r=>{p._namesBusy=false;if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh]}});if(JOBS[id])JOBS[id].pid=p.id}
 function namesBtn(p,label){return p._namesBusy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Suggesting names…</span>`:`<button class="btn" data-a="morenames">${label}</button>`}
 function ownName(p){return `<label class="f" style="margin-top:12px">Or type your own name<div class="row" style="flex-wrap:nowrap"><input type="text" id="ownname" placeholder="e.g. Shot Garage" value="${p.name&&!(p.nameOpts||[]).includes(p.name)?esc(p.name):""}"><button class="btn pri" data-a="ownnamesave">Use this name</button></div></label>`}
 function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box,...(pr.photos||[])].filter(Boolean)}
@@ -580,16 +587,39 @@ async function boot(){
   render();
 }
 function glab(g){return g.hook&&g.reveal?`<b>${esc(g.hook)}</b>+ ${esc(g.reveal)}`:g.hook?`<b>${esc(g.hook)}</b>Hook`:`<b>${esc(g.reveal)}</b>Reveal`}
-function genOne(x,kind,engine){
+function productInfo(pr){
+  return {name:pr.name,from:pr.from,description:pr.desc||"",niche:pr.niche||"",variation:pr.variation||"",supplier:pr.supplier||"",
+    instagram:(pr.social||{}).instagram||"",tiktok:(pr.social||{}).tiktok||"",color:pr.color||"",
+    photos:pr.photos||[],logo:(pr.art||{}).logo||"",box:(pr.art||{}).box||"",collage:(pr.art||{}).collage||"",cover:(pr.art||{}).cover||"",
+    refs:refsOf(pr),source_reel:pr.url||"",notes:pr.notes||"",note_files:(pr.noteFiles||[]).map(f=>f.path)};
+}
+function genModal(){
+  const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(!x)return "";
+  const pr=P(S.concept.pid),isHook=S.ui.genKind==="hook",eng=S.ui.genEngine||"Seedance";
+  const q=(id,label,ph,area)=>`<label class="f">${label}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</label>`;
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="Generate ${esc(x.name)}"><div class="modal-box">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Generate this ${isHook?"hook":"reveal"}${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">${esc(x.name)}</h2></div><button class="btn" data-a="gencancel" aria-label="Close">✕</button></div>
+    <p class="note">Leave a question empty to keep that part the same as the original ${isHook?"hook":"reveal"}.</p>
+    <div class="form">
+      <div><div class="note" style="margin-bottom:6px">Engine</div><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="geneng" data-v="Seedance">Seedance · build from scratch</button><button aria-pressed="${eng==="Genjutsu"}" data-a="geneng" data-v="Genjutsu">Genjutsu · swap into the clip</button></div></div>
+      <div class="two">${q("gq-people","People: who should be in it?","e.g. young dad, 30s, beard, grey hoodie")}${q("gq-bg","Background / location","e.g. Walmart toy aisle, cozy living room")}</div>
+      ${q("gq-script","Script: what do they say?","e.g. Wife whispers: \"Don't tell my husband…\" then he finds the box",true)}
+      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked")}<label class="f">Length<select id="gq-len"><option value="">Claude decides</option><option>5</option><option>8</option><option>10</option><option>15</option></select></label></div>
+      ${q("gq-other","Anything else to change?","e.g. product in close-up at second 2, night time",true)}
+      ${pr?"":`<p style="color:var(--bad)">Pick a product with a finished brand kit at the top of Concepts first.</p>`}
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-a="gencancel">Cancel</button><button class="btn pri big" data-a="gengo" ${pr?"":"disabled"}>Generate</button></div>
+    </div></div></div>`;
+}
+function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
   if(!pr){toast("Finish a product's brand kit first, then pick it at the top");return}
   const isHook=kind==="hook";
-  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
+  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,changes,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
   S.gens.unshift(g);S.ui.genFor=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const clip={name:x.name,desc:x.desc,url:x.url||""};
-    g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:{name:pr.name,from:pr.from,refs:refsOf(pr)},hook:isHook?clip:null,reveal:isHook?null:clip,engine,source:x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
+    const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||""};
+    g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
   }else{S.credits+=72;later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
   toast(`Generating ${isHook?"hook":"reveal"} with ${engine}. See Generations`);
@@ -610,7 +640,7 @@ function kitRun(p,k,note){
   p.kit[k]="gen";S.ui.kitFix=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");p.kit[k]=p.art&&p.art[k]?"pending":"todo";return}
-    runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
+    runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path),variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
   }else{S.credits+=4;later(1500,()=>{p.kit[k]="pending"})}
 }
 function bestHandles(p,n){
@@ -644,7 +674,7 @@ function compSearch(p,i){
   const it=(p.ideas||[])[i];if(!it)return;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const id=runJob("competitors","Competitors · "+it.title.slice(0,40),{product:p.from,description:p.desc||"",idea:it,source:p.url||""},r=>{if(r.ok)it.comp={verdict:r.verdict,summary:r.summary,competitors:r.competitors||[]}});
+    const id=runJob("competitors","Competitors · "+it.title.slice(0,40),{product:p.from,description:p.desc||"",idea:it,source:p.url||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path)},r=>{if(r.ok)it.comp={verdict:r.verdict,summary:r.summary,competitors:r.competitors||[]}});
     JOBS[id].pid=p.id;JOBS[id].idx=i;
   }else{it.compBusy=true;later(1500,()=>{it.compBusy=false;it.comp={verdict:i%3===0?"crowded":i%3===1?"open":"some",summary:"Example result",competitors:[{name:"@example.store",url:"https://www.instagram.com/",where:"Instagram",stats:"12K followers"}]}})}
 }
@@ -652,7 +682,7 @@ function brainstorm(p){
   const known=(p.ideas||[]).map(x=>x.title);
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const id=runJob("ideas","Ideas · "+(p.name||p.from).slice(0,40),{product:p.from,description:p.desc||"",niche:p.niche||"",supplier:p.supplier||"",source:p.url||"",count:6,known},r=>{p._ideasBusy=false;if(r.ok){p.ideas=[...(p.ideas||[]),...(r.ideas||[])];toast(`${(r.ideas||[]).length} new ideas`)}});
+    const id=runJob("ideas","Ideas · "+(p.name||p.from).slice(0,40),{product:p.from,description:p.desc||"",niche:p.niche||"",supplier:p.supplier||"",source:p.url||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path),count:6,known},r=>{p._ideasBusy=false;if(r.ok){p.ideas=[...(p.ideas||[]),...(r.ideas||[])];toast(`${(r.ideas||[]).length} new ideas`)}});
     JOBS[id].pid=p.id;p._ideasBusy=true;
   }else{S.ui.ideasFor=p.id;later(1500,()=>{S.ui.ideasFor=null;p.ideas=[...(p.ideas||[]),
     {type:"variation",title:"Premium bundle: 4 targets + 2 blasters",audience:"Parents buying a big Christmas gift",angle:"Whole-family game night",why:"Higher price, feels like a bigger gift"},
@@ -676,7 +706,7 @@ function render(){
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
-  $("#main").innerHTML=warn+V[v]();counts();save();jobsUI();
+  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"");counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
@@ -733,9 +763,11 @@ $("#main").addEventListener("click",e=>{
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"ask":S.ui.delAsk=id;break;
     case"nodel":S.ui.delAsk=null;break;
-    case"genask":S.ui.genFor=id;break;
+    case"genask":S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";break;
+    case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
+    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:v("gq-len"),other:v("gq-other").trim()});S.ui.genFor=null;break}
     case"gencancel":S.ui.genFor=null;break;
-    case"gen1":{const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(x)genOne(x,b.dataset.k,b.dataset.v);break}
+    
     case"findclips":findClips(b.dataset.v);break;
     case"addc":S.ui.addKind=b.dataset.v;break;
     case"addcclose":S.ui.addKind=null;break;
@@ -745,6 +777,8 @@ $("#main").addEventListener("click",e=>{
     case"kitfixno":S.ui.kitFix=null;break;
     case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
     case"ideas":brainstorm(p);break;
+    case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
+    case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"nonniche":setVar(p,"As is · no new niche");return;
     case"varownsave":{const v=$("#varown").value.trim();if(!v){toast("Describe the variation or niche first");return}setVar(p,v);return}
     case"ownnamesave":{const v=$("#ownname").value.trim();if(!v){toast("Type a name first");return}if(p.name!==v){p.unOpts=null;p.social=p.social||{}}p.name=v;toast("Name saved");break}
@@ -764,6 +798,7 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.notefiles&&t.files&&t.files.length){const p=P(S.ui.prod);p.noteFiles=p.noteFiles||[];for(const f of [...t.files]){try{p.noteFiles.push({name:f.name,path:await saveFile(f)})}catch(err){toast("Couldn't save "+f.name)}}toast("Files attached");render();return}
   if(t.dataset&&t.dataset.addphotos&&t.files&&t.files.length){const p=P(S.ui.prod);p.photos=p.photos||[];for(const f of [...t.files]){try{p.photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}if(!p.img&&p.photos[0])p.img=media(p.photos[0]);toast("Photos added");render();return}
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
   if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveFile(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip")}render();return}
@@ -778,7 +813,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&S.ui.genFor){S.ui.genFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 boot();
 </script>
 </body>

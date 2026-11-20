@@ -11,6 +11,7 @@ Do the job, write the result file, and stop. Nobody reads your chat output; only
    If you cannot finish, write `{"ok": false, "error": "<one plain sentence the user can act on>"}`.
 4. While working, print short progress lines (e.g. `Checking account 7 of 20`). The app shows your latest line.
 
+Product knowledge: when the input has `notes` (text the user pasted, often a whole research chat) or `note_files` (paths of attached documents), read them first and use what they say about the product, customer, selling points and tone. They outrank your own guesses.
 Save any downloaded image or video under `media/` and return its path relative to this folder (e.g. `media/f1-thumb.jpg`), or return a public https URL.
 Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 
@@ -66,9 +67,10 @@ Input: `asset` (`logo` | `collage` | `box` | `cover`), `name`, `product`, `niche
 Use `generate_image`. Result: `{"ok":true,"file":"<path or url>","credits":n}`
 
 ### `generate`: one video from a hook, a reveal, or both
-Input: `product` (name, refs), `hook` and `reveal` (each `{name, desc, url}` or `null`; one of them may be null: then make just that hook (2–5s) or just that reveal), `engine` (`Seedance` | `Genjutsu`), `source` (viral reel url/path for Genjutsu), `maxCredits`.
+Input: `product` (everything known: name, from, description, niche, variation, supplier, instagram, tiktok, color, photos, logo, box, collage, cover, refs, source_reel), `changes` (`{people, background, script, mood, length, other}`: the user's answers; an empty field means keep it like the original), `hook` and `reveal` (each `{name, desc, fits, url, clip}` or `null`; `clip` is a local file of the original, upload it to Higgsfield when you need it; one of them may be null: then make just that hook (2–5s) or just that reveal), `engine` (`Seedance` | `Genjutsu`), `source` (viral reel url/path for Genjutsu), `maxCredits`.
 - **Seedance**: model `seedance_2_5`, mode `omni_reference`, resolution `480p`, aspect `9:16`, bitrate `high`, `generate_audio: true`. Attach only product photos as `image_references` (never start/end frames). Write a detailed timestamped multi-shot prompt: setting, people, wardrobe, lighting, emotions, English lip-synced dialogue, real-life sounds, no on-screen text. Pick the length that fits the hook + reveal (usually 10–15s).
 - **Genjutsu**: model `hf_mult_replace_object`, source video = `source` (download it first if it's an Instagram link and upload it to Higgsfield), images = product refs. Prompt: the user's template without the ownership sentence (the source belongs to someone else): keep everything identical, swap only the product, no text, no audio unless asked.
+Apply every non-empty field in `changes`: in Seedance, write them into the prompt (people, wardrobe, location, dialogue, mood, length); in Genjutsu, add them as extra swaps in item (1) of the template. Use the product photos/collage/box as references so the product looks exactly right, and show the brand name only where the product or box really has it.
 Always estimate cost first; if over `maxCredits`, stop with an error.
 Result: `{"ok":true,"video":"<url>","job_id":"<higgsfield job id>","duration":"0:15","credits":n,"prompt":"<prompt used>"}`
 
