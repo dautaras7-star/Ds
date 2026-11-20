@@ -355,7 +355,7 @@ my(){
 product(p){
   const kitItem=(k,label,art,cls="")=>{const st=p.kit[k];return `<div class="asset ${cls}"><div class="art ${k==="cover"?"wide":"sq"}" style="background:${st==="todo"?"var(--panel2)":"var(--panel2)"}">${st==="todo"?'<span class="note">Not generated</span>':st==="gen"?'<span class="scrolling" style="font-size:12px"><span class="spin"></span>Generating</span>':(p.art&&p.art[k]?`<img src="${esc(media(p.art[k]))}" alt="" style="width:100%;height:100%;object-fit:cover">`:art)}</div>
     <div class="row" style="justify-content:space-between"><b style="font-size:13px">${label}</b>${st==="ok"?'<span class="pill ok">Approved</span>':st==="pending"?'<span class="pill warn">Needs your OK</span>':""}</div>
-    ${!p.name?'<div class="note">Pick a name first</div>':st==="gen"?"":S.ui.kitFix===k?`<label class="note" for="kf">What should change?</label><textarea id="kf" placeholder="e.g. make the logo simpler, use a darker blue"></textarea><div class="row fill"><button class="btn" data-a="kitfixno">Cancel</button><button class="btn pri" data-a="kitfixgo" data-k="${k}">Regenerate</button></div>`:`<div class="row fill">${st==="todo"?`<button class="btn" data-a="kitgen" data-k="${k}">Generate</button>`:st==="pending"?`<button class="btn cy" data-a="kitfix" data-k="${k}">Fix</button><button class="btn ok" data-a="kitok" data-k="${k}">Approve</button>`:`<button class="btn cy" data-a="kitfix" data-k="${k}">Fix</button>`}<label class="btn">Upload<input type="file" accept="image/*" data-kitup="${k}" style="display:none"></label></div>`}</div>`};
+    ${!p.name?'<div class="note">Pick a name first</div>':st==="gen"?"":S.ui.kitFix===k?`<label class="note" for="kf">What should change?</label><textarea id="kf" placeholder="e.g. make the logo simpler, use a darker blue"></textarea><div class="row fill"><button class="btn" data-a="kitfixno">Cancel</button><button class="btn pri" data-a="kitfixgo" data-k="${k}">Regenerate</button></div>`:`<div class="row fill">${st==="todo"?`<button class="btn" data-a="kitgen" data-k="${k}">Create</button>`:st==="pending"?`<button class="btn cy" data-a="kitfix" data-k="${k}">Fix</button><button class="btn ok" data-a="kitok" data-k="${k}">Approve</button>`:`<button class="btn cy" data-a="kitfix" data-k="${k}">Fix</button>`}<label class="btn">Upload<input type="file" accept="image/*" data-kitup="${k}" style="display:none"></label></div>`}</div>`};
   const mono=`<span class="mono" style="font-size:40px;background:${p.color};width:70%;height:70%;border-radius:22%;display:grid;place-items:center">${initials(p.name)}</span>`;
   const cover=`<div style="position:absolute;inset:0;background:linear-gradient(120deg,${p.color},#0b0b10 75%)"></div><span class="mono" style="position:relative;font-size:26px">${esc(p.name)}</span>`;
   const collage=`<div class="collage"><div>front</div><div>side</div><div>top</div><div>detail</div></div>`;
@@ -367,7 +367,7 @@ product(p){
   <div class="detail"><div>
     <section class="step panel"><div class="step-h"><span class="k ${p.variation?"done":""}">1</span><h3>Variation or new niche</h3></div>
       <p class="note" style="margin-top:-4px">Let Claude brainstorm variations of this product and new niches it could sell in, then pick one. Or write your own.</p>
-      ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="ideas"&&j.pid===p.id)||S.ui.ideasFor===p.id;
+      ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="ideas"&&j.pid===p.id)||S.ui.ideasFor===p.id||p._ideasBusy;
       const ideas=p.ideas||[];
       return `<div class="row" style="margin-bottom:10px">${busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Brainstorming variations and niches…</span>`:`<button class="btn pri" data-a="ideas">${ideas.length?"More ideas":"Brainstorm ideas"}</button>`}${p.variation?`<span class="note">Picked: <b style="color:var(--fg)">${esc(p.variation)}</b></span>`:""}</div>
       ${ideas.length?`<div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${ideas.map((it,i)=>`<div class="lcard" style="display:block" aria-pressed="${p.variation===it.title}">
@@ -380,21 +380,25 @@ product(p){
           ${(it.comp.competitors||[]).slice(0,5).map(c=>`<div style="margin-top:4px;font-size:12px">${c.url?`<a class="title-link" href="${esc(c.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${esc(c.name||c.url)} ↗</a>`:esc(c.name||"")}<span class="note"> · ${esc([c.where,c.stats,c.price].filter(Boolean).join(" · "))}</span></div>`).join("")}</div>`:""}
         <div class="tools"><button class="btn ${p.variation===it.title?"cy":"pri"}" data-a="pickidea" data-i="${i}">${p.variation===it.title?"Picked ✓":"Pick this"}</button>${Object.values(JOBS).some(j=>j.type==="competitors"&&j.pid===p.id&&j.idx===i)||it.compBusy?`<span class="scrolling" style="font-size:12px"><span class="spin"></span>Searching…</span>`:`<button class="btn" data-a="comp" data-i="${i}">${it.comp?"Search again":"Search for competitors"}</button>`}</div>
       </div>`).join("")}</div>`:`<p class="note">No ideas yet. Press Brainstorm ideas.</p>`}`})()}
-      <label class="f" style="margin-top:10px">Or describe your own<input type="text" id="varown" placeholder="e.g. make it for cat owners"></label>
+      <div class="row" style="margin-top:12px"><button class="btn ${p.variation==="As is · no new niche"?"cy":""}" data-a="nonniche">${p.variation==="As is · no new niche"?"Keeping it as it is ✓":"No niche needed, keep it as it is"}</button></div>
+      <label class="f" style="margin-top:10px">Or describe your own<div class="row" style="flex-wrap:nowrap"><input type="text" id="varown" placeholder="e.g. make it for cat owners"><button class="btn" data-a="varownsave">Use this</button></div></label>
     </section>
     <section class="step panel"><div class="step-h"><span class="k ${p.name?"done":""}">2</span><h3>Product name</h3></div>
       ${p.variation?(p.nameOpts.length?`<div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${p.nameOpts.map(n=>{const h=(p.handlesCheck||{})[n];const busy=Object.values(JOBS).some(j=>j.type==="handles"&&j.pid===p.id&&(j.names||[]).includes(n));
         const line=(lab,x)=>!x?"":`<div style="font-size:12px;margin-top:3px"><span class="dot ${x.available===true?"ok":x.available===false?"bad":""}"></span>${lab} <b style="color:var(--fg)">@${esc(x.handle)}</b>${x.available===true?" free":x.available===false?" taken":" unknown"}${x.available===false&&x.alt?` · try <b style="color:var(--ok)">@${esc(x.alt)}</b>`:""}</div>`;
         return `<div class="lcard" style="display:block" aria-pressed="${p.name===n}"><h4>${esc(n)}</h4>
           <div class="tools"><button class="btn ${p.name===n?"cy":"pri"}" data-a="name" data-v="${esc(n)}">${p.name===n?"Picked ✓":"Pick"}</button></div></div>`}).join("")}</div>
-        <div class="row" style="margin-top:10px"><button class="btn" data-a="morenames">Suggest more</button></div>`:`<button class="btn" data-a="morenames">Suggest names</button>`):'<p class="note">Pick a variation first.</p>'}
+        <div class="row" style="margin-top:10px">${namesBtn(p,"Suggest more")}</div>`:namesBtn(p,"Suggest names"))+ownName(p):'<p class="note">Pick a variation first, or type your own name:</p>'+ownName(p)}
     </section>
     ${p.name?`<section class="step panel"><div class="step-h"><span class="k ${p.social&&p.social.instagram&&p.social.tiktok?"done":""}">@</span><h3>Social media usernames</h3><span class="note" style="margin-left:auto">Brand name stays ${esc(p.name)}</span></div>
       ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="usernames"&&j.pid===p.id)||S.ui.unFor===p.id;const opts=p.unOpts||{instagram:[],tiktok:[]};const soc=p.social||{};
         const col=(plat,lab)=>`<div><b style="font-size:13px">${lab}</b>${soc[plat]?` <span class="pill ok">@${esc(soc[plat])}</span>`:""}<div class="opts" style="margin-top:6px">${(opts[plat]||[]).map(o=>`<button class="chip" aria-pressed="${soc[plat]===o.handle}" ${o.available===false?"disabled style=\"opacity:.45;text-decoration:line-through\"":""} data-a="pickun" data-plat="${plat}" data-v="${esc(o.handle)}"><span class="dot ${o.available===true?"ok":o.available===false?"bad":""}"></span>@${esc(o.handle)}</button>`).join("")||'<span class="note">No options yet</span>'}</div></div>`;
         return `<div class="row" style="margin-bottom:12px">${busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Checking usernames on Instagram and TikTok…</span>`:`<button class="btn pri" data-a="findun">${(opts.instagram||[]).length?"Find more usernames":"Find free usernames"}</button>`}</div>
         <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">${col("instagram","Instagram")}${col("tiktok","TikTok")}</div>
-        <div class="row" style="margin-top:12px"><input type="text" id="ownun" placeholder="Type a username to check, e.g. snoozasaur.co" style="max-width:320px"><button class="btn" data-a="checkun">Check it</button></div>`})()}
+        <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px">
+          <label class="f">I already have an Instagram username<div class="row" style="flex-wrap:nowrap"><input type="text" id="myig" placeholder="@yourname" value="${esc((p.social||{}).instagram||"")}"><button class="btn" data-a="setun" data-plat="instagram">Save</button></div></label>
+          <label class="f">I already have a TikTok username<div class="row" style="flex-wrap:nowrap"><input type="text" id="mytt" placeholder="@yourname" value="${esc((p.social||{}).tiktok||"")}"><button class="btn" data-a="setun" data-plat="tiktok">Save</button></div></label></div>
+        <div class="row" style="margin-top:12px"><input type="text" id="ownun" placeholder="Or type a username to check if it's free" style="max-width:320px"><button class="btn" data-a="checkun">Check it</button></div>`})()}
     </section>`:""}
     <section class="step panel"><div class="step-h"><span class="k ${kitDone(p)===4?"done":""}">3</span><h3>Brand kit</h3><span class="note" style="margin-left:auto">${kitDone(p)} of 4 approved</span></div>
       <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
@@ -403,7 +407,7 @@ product(p){
       ${fins.length?`<div class="fgrid">${fins.map(g=>`<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div><div class="lab">${glab(g)}</div></div>`).join("")}</div>`:'<p class="note">No finals yet. Make concepts for this product.</p>'}
     </section>
   </div>
-  <aside class="side">${p.desc||(p.photos&&p.photos.length)?`<div class="panel">${p.desc?`<p style="margin:0 0 10px">${esc(p.desc)}</p>`:""}${p.photos&&p.photos.length?`<div class="row">${p.photos.map(ph=>`<img src="${esc(media(ph))}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join("")}</div>`:""}</div>`:""}<div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Instagram</dt><dd>${p.social&&p.social.instagram?"@"+esc(p.social.instagram):"—"}</dd><dt>TikTok</dt><dd>${p.social&&p.social.tiktok?"@"+esc(p.social.tiktok):"—"}</dd></dl></div>
+  <aside class="side">${p.desc||(p.photos&&p.photos.length)?`<div class="panel">${p.desc?`<p style="margin:0 0 10px">${esc(p.desc)}</p>`:""}${p.photos&&p.photos.length?`<div class="row">${p.photos.map(ph=>`<img src="${esc(media(ph))}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">`).join("")}</div>`:""}<label class="btn" style="margin-top:10px;display:inline-block">Add photos<input type="file" accept="image/*" multiple data-addphotos="1" style="display:none"></label></div>`:`<div class="panel"><p class="note" style="margin:0 0 8px">No product photos yet.</p><label class="btn" style="display:inline-block">Add photos<input type="file" accept="image/*" multiple data-addphotos="1" style="display:none"></label></div>`}<div class="panel"><dl class="kv"><dt>Niche</dt><dd>${esc(p.niche||"—")}</dd><dt>Variation</dt><dd>${esc(p.variation||"—")}</dd><dt>Supplier</dt><dd>${esc(p.supplier)}</dd><dt>Instagram</dt><dd>${p.social&&p.social.instagram?"@"+esc(p.social.instagram):"—"}</dd><dt>TikTok</dt><dd>${p.social&&p.social.tiktok?"@"+esc(p.social.tiktok):"—"}</dd></dl></div>
     ${p.variation==="My own product"&&!p.url?"":`<div class="panel">${p.url?`<a class="player" href="${esc(p.url)}" target="_blank" rel="noopener" style="${bg(p)};width:140px">`:`<div class="player" style="${bg(p)};width:140px">`}<span class="play"></span>${p.url?"</a>":"</div>"}<p class="note">Source viral video${p.url?" · opens Instagram":""}</p></div>`}
     ${pStep(p)===3?`<button class="btn pri big" data-a="toconcept" data-id="${p.id}">Make concepts →</button>`:'<p class="note">Finish all 3 steps to start making videos.</p>'}
   </aside></div>`;
@@ -529,7 +533,9 @@ if(window.studio)window.studio.onJobEvent(m=>{
   if(!r.ok)toast(r.error||"Job failed");
   render();
 });
-function askNames(p){runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||""},r=>{if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh]}})}
+function askNames(p){p._namesBusy=true;const id=runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||"",known:p.nameOpts||[]},r=>{p._namesBusy=false;if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh]}});if(JOBS[id])JOBS[id].pid=p.id}
+function namesBtn(p,label){return p._namesBusy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Suggesting names…</span>`:`<button class="btn" data-a="morenames">${label}</button>`}
+function ownName(p){return `<label class="f" style="margin-top:12px">Or type your own name<div class="row" style="flex-wrap:nowrap"><input type="text" id="ownname" placeholder="e.g. Shot Garage" value="${p.name&&!(p.nameOpts||[]).includes(p.name)?esc(p.name):""}"><button class="btn pri" data-a="ownnamesave">Use this name</button></div></label>`}
 function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box,...(pr.photos||[])].filter(Boolean)}
 const LIVE={
   scroll(){S.ui.scrolling=true;runJob("scroll",`Scrolling Instagram · up to ${S.criteria.count||5} products · ${S.criteria.minutes||20} min`,{criteria:S.criteria,count:S.criteria.count||5,maxMinutes:S.criteria.minutes||20},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
@@ -646,8 +652,8 @@ function brainstorm(p){
   const known=(p.ideas||[]).map(x=>x.title);
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const id=runJob("ideas","Ideas · "+(p.name||p.from).slice(0,40),{product:p.from,description:p.desc||"",niche:p.niche||"",supplier:p.supplier||"",source:p.url||"",count:6,known},r=>{if(r.ok){p.ideas=[...(p.ideas||[]),...(r.ideas||[])];toast(`${(r.ideas||[]).length} new ideas`)}});
-    JOBS[id].pid=p.id;
+    const id=runJob("ideas","Ideas · "+(p.name||p.from).slice(0,40),{product:p.from,description:p.desc||"",niche:p.niche||"",supplier:p.supplier||"",source:p.url||"",count:6,known},r=>{p._ideasBusy=false;if(r.ok){p.ideas=[...(p.ideas||[]),...(r.ideas||[])];toast(`${(r.ideas||[]).length} new ideas`)}});
+    JOBS[id].pid=p.id;p._ideasBusy=true;
   }else{S.ui.ideasFor=p.id;later(1500,()=>{S.ui.ideasFor=null;p.ideas=[...(p.ideas||[]),
     {type:"variation",title:"Premium bundle: 4 targets + 2 blasters",audience:"Parents buying a big Christmas gift",angle:"Whole-family game night",why:"Higher price, feels like a bigger gift"},
     {type:"niche",title:"Office team-building game",audience:"Remote teams and office managers",angle:"Friday fun at work",why:"New audience, nobody sells it this way yet"},
@@ -681,7 +687,7 @@ function render(){
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
 function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
-function setVar(p,v){p.variation=v;p.nameOpts=[];p.name="";Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Variation set. Suggesting names…");(MODE==="live"?askNames(p):later(900,()=>{p.nameOpts=suggest(p)}));render()}
+function setVar(p,v){p.variation=v;if(p.name){toast("Saved");render();return}p.nameOpts=[];toast("Saved. Suggesting names…");if(MODE==="live")askNames(p);else{p._namesBusy=true;later(900,()=>{p._namesBusy=false;p.nameOpts=suggest(p)})}render()}
 function suggest(p){const base=["Nova","Glow","Pulse","Orbit","Loop","Spark","Peak","Haven","Bolt","Echo"],end=["Beam","Lab","Play","Box","Go","Kit","Pro","Mate"];return [...Array(4)].map(()=>base[Math.random()*base.length|0]+end[Math.random()*end.length|0])}
 
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{S.ui.prod=null;location.hash=b.dataset.view;render()});
@@ -702,7 +708,7 @@ $("#main").addEventListener("click",e=>{
     case"closeprod":S.ui.prod=null;break;
     case"delprod":S.products=S.products.filter(x=>x.id!==id);S.gens=S.gens.filter(g=>g.pid!==id);S.ui.prod=null;toast("Product removed");break;
     case"var":setVar(p,b.dataset.v);return;
-    case"morenames":p.nameOpts=suggest(p);break;
+    case"morenames":p._namesBusy=true;later(900,()=>{p._namesBusy=false;p.nameOpts=[...p.nameOpts,...suggest(p)]});break;
     case"name":if(p.name!==b.dataset.v){p.unOpts=null;p.social={}}p.name=b.dataset.v;Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Name set. Generate the brand kit next");break;
     case"kitgen":{const k=b.dataset.k;p.kit[k]="gen";S.credits+=4;later(1500,()=>{p.kit[k]="pending"});break}
     case"kitok":p.kit[b.dataset.k]="ok";if(kitDone(p)===4)toast("Brand kit done. Ready for concepts");break;
@@ -739,6 +745,10 @@ $("#main").addEventListener("click",e=>{
     case"kitfixno":S.ui.kitFix=null;break;
     case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
     case"ideas":brainstorm(p);break;
+    case"nonniche":setVar(p,"As is · no new niche");return;
+    case"varownsave":{const v=$("#varown").value.trim();if(!v){toast("Describe the variation or niche first");return}setVar(p,v);return}
+    case"ownnamesave":{const v=$("#ownname").value.trim();if(!v){toast("Type a name first");return}if(p.name!==v){p.unOpts=null;p.social=p.social||{}}p.name=v;toast("Name saved");break}
+    case"setun":{const plat=b.dataset.plat,v=($(plat==="instagram"?"#myig":"#mytt").value||"").trim().replace(/^@/,"");p.social=p.social||{};if(v)p.social[plat]=v;else delete p.social[plat];p.handles=[p.social.instagram&&"IG @"+p.social.instagram,p.social.tiktok&&"TikTok @"+p.social.tiktok].filter(Boolean).join(" · ");toast(v?"Username saved":"Username cleared");break}
     case"handles":checkHandles(p,b.dataset.v?[b.dataset.v]:p.nameOpts);break;
     case"findun":findUsernames(p,[]);break;
     case"checkun":{const v=($("#ownun").value||"").trim().replace(/^@/,"").toLowerCase();if(!v){toast("Type a username first");return}findUsernames(p,[v]);break}
@@ -754,6 +764,7 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.addphotos&&t.files&&t.files.length){const p=P(S.ui.prod);p.photos=p.photos||[];for(const f of [...t.files]){try{p.photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}if(!p.img&&p.photos[0])p.img=media(p.photos[0]);toast("Photos added");render();return}
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
   if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveFile(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip")}render();return}
   const num=v=>parseInt(String(v).replace(/[^0-9]/g,""),10);
