@@ -39,6 +39,8 @@ function prepareWorkspace() {
   for (const d of ['jobs', 'results', 'media']) fs.mkdirSync(path.join(dir, d), { recursive: true });
   // Refresh the worker instructions on every start so app updates ship new rules.
   fs.copyFileSync(path.join(__dirname, 'worker', 'CLAUDE.md'), path.join(dir, 'CLAUDE.md'));
+  const skillsSrc = path.join(__dirname, 'worker', 'skills');
+  if (fs.existsSync(skillsSrc)) fs.cpSync(skillsSrc, path.join(dir, '.claude', 'skills'), { recursive: true, force: true });
   writePlaybook();
 }
 function writePlaybook() {

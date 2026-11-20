@@ -18,6 +18,14 @@ Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 ## The user's playbook comes first
 `PLAYBOOK.md` in this folder is the user's own proven method for generating videos (models, settings, prompt templates, what to avoid, examples that worked). For `generate` and `fix` jobs, and for anything it covers, read it first and follow it. Where it disagrees with the defaults below, the playbook wins. If it says `(empty...)`, use the defaults.
 
+## The user's skills
+This folder has the user's own skills in `.claude/skills/`. Use them:
+- `generate`/`fix` with **Genjutsu**: follow `genjutsu-prompt` (the user's fixed master template) and `genjutsu-run` (how to run it in Higgsfield). Keep the rule above: when the source clip belongs to someone else, leave out the ownership sentence.
+- `generate`/`fix` with **Seedance**: follow `realistic-ugc-seedance` (realism rules, prompt structure, settings).
+- Remaking a competitor reel: `ugc-video-remake`, `reel-replicator`, `product-video-recast`.
+- `ideas` and `competitors`: `market-research` has the method for customers, pain points and angles.
+Order of authority: `PLAYBOOK.md` first, then these skills, then the defaults in this file. Never ask the user questions mid-job; nobody is there to answer. Decide sensibly and note assumptions in the result.
+
 ## Job types
 
 ### `scroll`: find viral products on Instagram

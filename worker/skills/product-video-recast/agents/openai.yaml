@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Video Recast"
+  short_description: "Recast in 9:16 with consistent avatar, voice and B-roll"
+  default_prompt: "Use $product-video-recast to create a text-free 9:16 recast with actual Pinterest references, the same replacement avatar in every view, a matching requested voice, coherent locations and B-roll, and verified product actions and cuts within my authorized allowance."
