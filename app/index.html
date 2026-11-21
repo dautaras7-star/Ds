@@ -213,6 +213,9 @@ ol.steps-list{margin:6px 0 0;padding-left:18px;color:var(--muted)}
 ol.steps-list li{margin:4px 0}
 .modal{position:fixed;inset:41px 0 0 0;background:rgba(5,5,10,.72);display:grid;place-items:center;z-index:30;padding:20px}
 .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(720px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.ocgrp{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--panel2)}
+.ocgrp summary{cursor:pointer;font-family:var(--display);font-weight:600}
+.chip input{accent-color:var(--accent2)}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -446,7 +449,7 @@ concepts(){
       ${list.length?`<div class="lgrid">${list.map(x=>libCard(x,kind==="hook"?"hook":"rev","pick")).join("")}</div>`:`<p class="note">No ${word}s yet. Find viral ones or add your own.</p>`}
     </section>`;
   };
-  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Hooks are the first 2–3 seconds. Reveals show the product. Find viral ones from competitors or add your own, then press Generate on any card and choose Seedance or Genjutsu.</p></div></div>
+  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Hooks are the first 2–3 seconds. Reveals show the product. Find viral ones from competitors, add your own, or write a clip from scratch. Then press Generate on any card.</p></div><button class="btn pri big" data-a="ownclip">✎ Write my own clip</button></div>
   <section class="cstep"><h2>Product</h2>${ready.length?`<div class="opts">${ready.map(x=>`<button class="chip" aria-pressed="${x.id===c.pid}" data-a="cprod" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div>`:'<p class="note">No product is ready yet. Finish a product\'s brand kit in My products to generate. You can still collect hooks and reveals.</p>'}</section>
   ${section("hook","Hooks",S.hooks)}
   ${section("rev","Reveals",S.reveals)}`;
@@ -529,7 +532,7 @@ function libCard(x,kind,mode){
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:110px 1fr">
     <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<span class="note" style="position:absolute;inset:auto 0 8px;text-align:center;z-index:1;font-size:10px">No clip</span>`}</div>
-    <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">Fits: ${esc(x.fits)}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
+    <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">${x.own?`<span class="pill pk">${x.full?"My full video":"My own clip"}</span>`:`Fits: ${esc(x.fits)}`}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
       ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}
       <div class="tools">${mode==="pick"?`<button class="btn cy" data-a="genask" data-id="${x.id}" data-k="${kind}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
@@ -654,6 +657,60 @@ function genModal(){
       <div class="row" style="justify-content:flex-end"><button class="btn" data-a="gencancel">Cancel</button><button class="btn pri big" data-a="gengo" ${pr?"":"disabled"}>Generate</button></div>
     </div></div></div>`;
 }
+const OC_ANGLES=["Product close-up","Wide shot","First-person POV","Low angle","Overhead / top-down","Reaction close-up","Over the shoulder","Selfie"];
+function ownClipModal(){
+  const pr=P(S.concept.pid);
+  const sel=(id,label,opts,def)=>`<label class="f">${label}<select id="${id}">${opts.map(o=>`<option ${o===def?"selected":""}>${o}</option>`).join("")}</select></label>`;
+  const txt=(id,label,ph)=>`<label class="f">${label}<input type="text" id="${id}" placeholder="${ph}"></label>`;
+  const area=(id,label,ph)=>`<label class="f">${label}<textarea id="${id}" placeholder="${ph}"></textarea></label>`;
+  const grp=(title,inner,open)=>`<details class="ocgrp" ${open?"open":""}><summary>${title}</summary><div class="form" style="margin-top:10px">${inner}</div></details>`;
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="Write my own clip"><div class="modal-box" style="width:min(860px,100%)">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Write my own clip${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">Describe it, Claude makes it</h2></div><button class="btn" data-a="ownclipclose" aria-label="Close">✕</button></div>
+    <p class="note">Only the description is required. Everything else is optional: leave it and Claude decides, following your playbook and product rules.</p>
+    ${grp("Basics",`<div class="two">${txt("oc-name","Clip name","e.g. Grandpa finds the truck")}${sel("oc-type","Type",["Hook","Reveal","Full video"],"Hook")}</div>
+      ${area("oc-desc","What happens? *","Describe the clip in your own words: who, where, what they do, what we see")}
+      <div class="two">${sel("oc-engine","Engine",["Seedance","Genjutsu"],"Seedance")}${sel("oc-count","How many versions",["1","2","3","4"],"1")}</div>
+      <label class="f">Source clip for Genjutsu (optional)<input type="file" id="oc-src" accept="video/*"></label>`,true)}
+    ${grp("Length & structure",`<div class="two">${sel("oc-len","Total length (seconds)",["Claude decides","3","5","8","10","12","15","20","30"],"Claude decides")}${sel("oc-shots","Number of shots",["Claude decides","1 (one take)","2","3","4","5","6+"],"Claude decides")}</div>
+      <div class="two">${sel("oc-pace","Pace",["Claude decides","Slow","Normal","Fast cuts"],"Claude decides")}${txt("oc-first","First 1–2 seconds (the hook moment)","e.g. box falls off the shelf")}</div>
+      ${txt("oc-end","Ending / payoff","e.g. dad laughs and pours shots for everyone")}`)}
+    ${grp("People",`<div class="two">${sel("oc-ppl","How many people",["Claude decides","None","1","2","3","4+","Family"],"Claude decides")}${txt("oc-who","Who (age, gender, look)","e.g. man 50s, grey beard; wife 40s")}</div>
+      <div class="two">${txt("oc-wear","Clothes","e.g. flannel shirt, jeans")}${txt("oc-pets","Pets","e.g. golden retriever, or none")}</div>
+      <label class="check"><input type="checkbox" id="oc-hands">Hands only, no faces</label>`)}
+    ${grp("Setting",`<div class="two">${txt("oc-loc","Location","e.g. garage bar, kitchen island, Walmart aisle")}${sel("oc-io","Indoor or outdoor",["Claude decides","Indoor","Outdoor"],"Claude decides")}</div>
+      <div class="two">${sel("oc-time","Time of day",["Claude decides","Morning","Day","Golden hour","Evening","Night"],"Claude decides")}${sel("oc-light","Lighting",["Neutral white 5000K (default)","Natural window light","Bright daylight","Moody / dim","Party lights"],"Neutral white 5000K (default)")}</div>
+      ${txt("oc-season","Season / weather","e.g. Christmas, snowy outside")}`)}
+    ${grp("Camera",`<div class="two">${sel("oc-style","Style",["Handheld phone UGC","Tripod / static","Selfie","First-person POV","Over the shoulder","Top-down"],"Handheld phone UGC")}${sel("oc-move","Movement",["Claude decides","Static","Handheld shake","Slow pan","Push-in","Follow the action"],"Claude decides")}</div>
+      <div><div class="note" style="margin-bottom:6px">Angles to include</div><div class="opts">${OC_ANGLES.map((a,i)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" class="oc-angle" value="${a}" style="margin-right:6px">${a}</label>`).join("")}</div></div>`)}
+    ${grp("Sound & dialogue",`<div class="two">${sel("oc-dlg","Dialogue",["Claude decides","None","One line","Conversation"],"Claude decides")}${sel("oc-accent","Accent",["American","British","Australian","Other / any"],"American")}</div>
+      ${area("oc-script","Script (exact words)","e.g. Wife: \"Don't tell my husband…\"")}
+      <div class="two">${sel("oc-vo","Voiceover narrator",["No","Yes"],"No")}${sel("oc-music","Music",["None (default)","Light background music"],"None (default)")}</div>
+      ${txt("oc-sfx","Sound effects","e.g. bottles clinking, box tearing, engine sound")}`)}
+    ${grp("Product",`<div class="two">${txt("oc-when","Product first appears at (second)","e.g. 2")}${sel("oc-how","How it's shown",["Claude decides","In hand","Unboxing","In use","On a shelf","On a table"],"Claude decides")}</div>
+      <div class="two">${txt("oc-feat","Feature that must be visible","e.g. truck drives around the loop and stops at each glass")}<label class="check" style="margin-top:18px"><input type="checkbox" id="oc-box">Show the box / packaging</label></div>`)}
+    ${grp("Mood",`<div class="two">${sel("oc-mood","Mood",["Claude decides","Funny","Shocked","Wholesome","Satisfying","ASMR","Dramatic","Romantic"],"Claude decides")}${txt("oc-avoid","Avoid","e.g. no kids, no alcohol pouring close-up")}</div>`)}
+    ${pr?"":`<p style="color:var(--warn)">No product picked yet: you can save the clip now and generate later.</p>`}
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div>
+  </div></div>`;
+}
+async function readOwnClip(){
+  const v=id=>(($("#"+id)||{}).value||"").trim(),c=id=>!!($("#"+id)||{}).checked;
+  const desc=v("oc-desc");if(!desc){toast("Describe what happens first");return null}
+  const keep=x=>x&&x!=="Claude decides"?x:"";
+  const spec={type:v("oc-type"),description:desc,engine:v("oc-engine"),versions:+v("oc-count")||1,
+    length:keep(v("oc-len")),shots:keep(v("oc-shots")),pace:keep(v("oc-pace")),first_seconds:v("oc-first"),ending:v("oc-end"),
+    people:keep(v("oc-ppl")),who:v("oc-who"),clothes:v("oc-wear"),pets:v("oc-pets"),hands_only:c("oc-hands"),
+    location:v("oc-loc"),indoor_outdoor:keep(v("oc-io")),time_of_day:keep(v("oc-time")),lighting:v("oc-light"),season:v("oc-season"),
+    camera_style:v("oc-style"),movement:keep(v("oc-move")),angles:[...document.querySelectorAll(".oc-angle:checked")].map(x=>x.value),
+    dialogue:keep(v("oc-dlg")),accent:v("oc-accent"),script:v("oc-script"),voiceover:v("oc-vo"),music:v("oc-music"),sound_effects:v("oc-sfx"),
+    product_appears_at:v("oc-when"),product_shown:keep(v("oc-how")),must_show:v("oc-feat"),show_box:c("oc-box"),
+    mood:keep(v("oc-mood")),avoid:v("oc-avoid")};
+  const kind=spec.type==="Reveal"?"rev":"hook";
+  const x={id:uid(),name:v("oc-name")||desc.slice(0,40),desc,fits:"My own clip",own:true,full:spec.type==="Full video",spec,bg:G("#2a1d3d","#0b0b10")};
+  const src=($("#oc-src")||{}).files;if(src&&src[0]){try{const fp=await saveFile(src[0]);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=src[0].name}catch(e){toast("Couldn't save the source clip")}}
+  (kind==="hook"?S.hooks:S.reveals).unshift(x);
+  return {x,kind,spec};
+}
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
   if(!pr){toast("Finish a product's brand kit first, then pick it at the top");return}
@@ -662,7 +719,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
   S.gens.unshift(g);S.ui.genFor=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||""};
+    const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null};
     g.started=Date.now();g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
   }else{S.credits+=72;later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
@@ -760,7 +817,7 @@ function render(){
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
-  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"");counts();save();jobsUI();
+  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"");counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
@@ -835,6 +892,10 @@ $("#main").addEventListener("click",e=>{
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;break;
+    case"ownclip":S.ui.ownClip=true;break;
+    case"ownclipclose":S.ui.ownClip=false;break;
+    case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
+    case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;for(let i=0;i<r.spec.versions;i++)genOne(r.x,r.kind,r.spec.engine,{});render()});return;
     case"hfget":if(!window.studio){toast("Only works in the desktop app");return}getFromHiggsfield(gen);break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;
     case"closeview":if(e.target.closest("[data-stop]")&&!e.target.closest("button"))return;S.ui.view=null;break;
@@ -872,7 +933,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view)){S.ui.genFor=null;S.ui.view=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 boot();
 </script>
 </body>
