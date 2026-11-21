@@ -728,10 +728,18 @@ function nextModal(){
     <div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${ideas.map((it,i)=>`<label class="lcard" style="display:block;cursor:pointer" aria-pressed="${!!it.sel}">
       <div class="row" style="justify-content:space-between"><span class="pill ${it.type==="reveal"||it.type==="demo"?"ok":it.type==="unboxing"?"cy":"pk"}">${esc(PART_TYPES[it.type]||it.type||"Part")}</span><input type="checkbox" data-nextsel="${i}" ${it.sel?"checked":""} style="width:18px;height:18px;accent-color:var(--accent2)"></div>
       <h4 style="margin-top:6px">${esc(it.title)}</h4><p>${esc(it.description)}</p>
-      ${it.setting?`<p><b style="color:var(--fg)">Where:</b> ${esc(it.setting)}</p>`:""}${it.people?`<p><b style="color:var(--fg)">Who:</b> ${esc(it.people)}</p>`:""}${it.length?`<div class="fits">${esc(it.length)}</div>`:""}
+      ${it.setting?`<p><b style="color:var(--fg)">Where:</b> ${esc(it.setting)}</p>`:""}${it.people?`<p><b style="color:var(--fg)">Who:</b> ${esc(it.people)}</p>`:""}<label class="f" style="margin-top:6px;max-width:160px">Length<input type="text" list="lenlist" inputmode="numeric" data-nextlen="${i}" value="${esc(it.length||"")}" placeholder="e.g. 6s"></label>
     </label>`).join("")}</div>
     ${!ideas.length&&!busy?'<p class="note">No suggestions yet.</p>':""}
-    <div class="row" style="justify-content:space-between"><button class="btn" data-a="nextmore" ${busy?"disabled":""}>More ideas</button><div class="row"><button class="btn" data-a="nextclose">Cancel</button><button class="btn pri big" data-a="nextgo" ${n?"":"disabled"}>Generate ${n||""} clip${n===1?"":"s"}</button></div></div>
+    ${S.ui.nextAdd?`<div class="addform" style="background:var(--panel2);padding:12px;border-radius:12px">
+      <label class="f">Type<select id="np2-type">${Object.entries(PART_TYPES).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label>
+      <label class="f">Title<input type="text" id="np2-title" placeholder="e.g. Grandma unwraps it"></label>
+      <label class="f full">What happens?<textarea id="np2-desc" placeholder="Describe the scene"></textarea></label>
+      <label class="f">Where<input type="text" id="np2-where" placeholder="e.g. Kitchen, morning daylight"></label>
+      <label class="f">Who<input type="text" id="np2-who" placeholder="e.g. Same boy and mom"></label>
+      <label class="f">Length<input type="text" id="np2-len" list="lenlist" inputmode="numeric" placeholder="e.g. 6s"></label>
+      <div class="row full"><button class="btn" data-a="nextaddclose">Cancel</button><button class="btn pri" data-a="nextaddsave">Add part</button></div></div>`:""}
+    <div class="row" style="justify-content:space-between"><div class="row"><button class="btn" data-a="nextmore" ${busy?"disabled":""}>More ideas</button><button class="btn" data-a="nextadd">+ Add my own part</button></div><div class="row"><button class="btn" data-a="nextclose">Cancel</button><button class="btn pri big" data-a="nextgo" ${n?"":"disabled"}>Generate ${n||""} clip${n===1?"":"s"}</button></div></div>
   </div></div>`;
 }
 function genPart(parent,idea,order){
@@ -1105,7 +1113,10 @@ $("#main").addEventListener("click",e=>{
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;S.ui.viewVid=null;break;
     case"further":{S.ui.nextFor=id;const g=S.gens.find(x=>x.id===id);if(g&&!(g.nextIdeas||[]).length&&!nextBusy(g))askNext(g);break}
-    case"nextclose":S.ui.nextFor=null;break;
+    case"nextclose":S.ui.nextFor=null;S.ui.nextAdd=false;break;
+    case"nextadd":S.ui.nextAdd=true;break;
+    case"nextaddclose":S.ui.nextAdd=false;break;
+    case"nextaddsave":{const g=S.gens.find(x=>x.id===S.ui.nextFor);const v=i=>(($("#"+i)||{}).value||"").trim();const d=v("np2-desc");if(!d){toast("Describe what happens");return}g.nextIdeas=g.nextIdeas||[];g.nextIdeas.push({type:v("np2-type"),title:v("np2-title")||d.slice(0,40),description:d,setting:v("np2-where"),people:v("np2-who"),length:secs(v("np2-len")),own:true,sel:true});S.ui.nextAdd=false;toast("Part added and ticked");break}
     case"nextmore":{const g=S.gens.find(x=>x.id===S.ui.nextFor);if(g)askNext(g);break}
     case"nextgo":{const g=S.gens.find(x=>x.id===S.ui.nextFor);if(!g)break;const picks=(g.nextIdeas||[]).filter(i=>i.sel);const base=Math.max(g.part||1,...S.gens.filter(x=>x.story&&x.story===(g.story||g.id)).map(x=>x.part||1));picks.forEach((it,k)=>{genPart(g,it,base+1+k);it.sel=false;it.used=true});S.ui.nextFor=null;toast(`Generating ${picks.length} part${picks.length===1?"":"s"} · see Generations`);if(route()==="finals")location.hash="generations";break}
     case"analyze":{const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(MODE!=="live"){toast("The breakdown comes from Claude in Live mode");return}if(x){x.analysis=null;analyzeClip(x)}break}
@@ -1145,6 +1156,7 @@ $("#main").addEventListener("click",e=>{
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
+  if(t.dataset&&t.dataset.nextlen!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);const it=g&&g.nextIdeas[+t.dataset.nextlen];if(it){it.length=secs(t.value)||it.length;t.value=it.length}save();return}
   if(t.dataset&&t.dataset.nextsel!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);if(g&&g.nextIdeas[+t.dataset.nextsel])g.nextIdeas[+t.dataset.nextsel].sel=t.checked;render();return}
   if(t.dataset&&t.dataset.finsel){const id=t.dataset.finsel;S.ui.finSel=S.ui.finSel||[];S.ui.finSel=t.checked?[...S.ui.finSel,id]:S.ui.finSel.filter(x=>x!==id);render();return}
   if(t.dataset&&t.dataset.relink&&t.files&&t.files.length){
