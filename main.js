@@ -137,20 +137,30 @@ ipcMain.handle('export:pick', async () => {
   writeSettings({ exportDir: r.filePaths[0] });
   return exportDir();
 });
+// Work out the real video format from the file's first bytes, so the extension matches the contents.
+function sniffVideo(buf) {
+  if (buf.length > 12 && buf.toString('latin1', 4, 8) === 'ftyp') return buf.toString('latin1', 8, 12) === 'qt  ' ? 'mov' : 'mp4';
+  if (buf.length > 4 && buf.readUInt32BE(0) === 0x1A45DFA3) return 'webm';
+  return null;
+}
 ipcMain.handle('export:video', async (_e, { src, product, name }) => {
-  const dir = path.join(exportDir(), clean(product));
-  fs.mkdirSync(dir, { recursive: true });
-  let file = path.join(dir, clean(name) + '.mp4'), i = 2;
-  while (fs.existsSync(file)) file = path.join(dir, `${clean(name)} (${i++}).mp4`);
+  let buf;
   if (/^https?:/i.test(src)) {
     const res = await net.fetch(src);
     if (!res.ok) throw new Error('Download failed: ' + res.status);
-    fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+    buf = Buffer.from(await res.arrayBuffer());
   } else {
     const from = /^file:/i.test(src) ? fileURLToPath(src) : path.join(ws(), src);
-    fs.copyFileSync(from, file);
+    buf = fs.readFileSync(from);
   }
-  log('exported ' + file);
+  const ext = sniffVideo(buf);
+  if (!ext) throw new Error("This clip isn't a video file (" + buf.length + " bytes). Open it with Watch, or Fix it to regenerate.");
+  const dir = path.join(exportDir(), clean(product));
+  fs.mkdirSync(dir, { recursive: true });
+  let file = path.join(dir, `${clean(name)}.${ext}`), i = 2;
+  while (fs.existsSync(file)) file = path.join(dir, `${clean(name)} (${i++}).${ext}`);
+  fs.writeFileSync(file, buf);
+  log(`exported ${file} (${ext}, ${buf.length} bytes)`);
   return file;
 });
 ipcMain.handle('media:save', (_e, name, bytes) => {
