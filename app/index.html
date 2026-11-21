@@ -218,6 +218,9 @@ ol.steps-list li{margin:4px 0}
 .chip input{accent-color:var(--accent2)}
 .upov{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(8,8,14,.62);text-align:center;padding:10px;font-size:12px}
 .upov span:last-child{color:var(--muted);font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.selbox{position:absolute;top:8px;left:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:6px;padding:3px 5px;cursor:pointer}
+.selbox input{width:18px;height:18px;accent-color:var(--accent2);cursor:pointer}
+.vid.selon .player{outline:2px solid var(--accent2);outline-offset:2px}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -238,7 +241,6 @@ ol.steps-list li{margin:4px 0}
     <button class="nav" data-view="generations"><span class="n">4</span>Generations<span class="cnt" id="c-gen"></span></button>
     <button class="nav" data-view="finals"><span class="n">5</span>Finals<span class="cnt" id="c-fin"></span></button>
     <div class="grp">Library &amp; posting</div>
-    <button class="nav" data-view="library"><span class="n"></span>Finished clips</button>
     <button class="nav" data-view="schedule"><span class="n"></span>Schedule<span class="soon">later</span></button>
     <button class="nav" data-view="connection"><span class="n"></span><span class="dot" id="ccdot"></span>Connection</button>
     <div id="jobs"></div>
@@ -291,7 +293,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null,ideasFor:null,unFor:null}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null,ideasFor:null,unFor:null,finSel:[],finDel:null,finBulkDel:false}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -464,13 +466,27 @@ generations(){
   ${groups.length?groups.map(p=>`<section class="ggroup"><div class="ggroup-h">${logo(p)}<h2 style="font-size:17px">${esc(p.name)}</h2></div><div class="vids">${list.filter(g=>g.pid===p.id).map(gTile).join("")}</div></section>`).join(""):'<div class="empty">Nothing waiting. Generate videos in Concepts.</div>'}`;
 },
 finals(){
-  const list=S.gens.filter(g=>["final","upscaling"].includes(g.st));
-  const notIn=list.filter(g=>g.st==="final"&&!g.drive).length;
-  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
-  <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
-  ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling with Topaz…</b><span>${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:""}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → 1080p":"1080p"}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
+  const all=S.gens.filter(g=>["final","upscaling"].includes(g.st));
+  // not-yet-sent first, sent ones at the bottom
+  const list=[...all.filter(g=>!g.drive),...all.filter(g=>g.drive)];
+  const selectable=list.filter(g=>g.st==="final");
+  const sel=S.ui.finSel||[];const selList=selectable.filter(g=>sel.includes(g.id));
+  const allOn=selectable.length&&selList.length===selectable.length;
+  const tile=g=>{const p=P(g.pid);const on=sel.includes(g.id);return `<div class="vid${on?" selon":""}">
+    <div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling with Topaz…</b><span>${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:`<label class="selbox" title="Select"><input type="checkbox" data-finsel="${g.id}" ${on?"checked":""}></label>`}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → 1080p":"1080p"}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok r">Sent ✓</span>':""}</div>
     <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
-    ${g.st==="upscaling"?(g.stuck?`<div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button></div>`:'<div class="note">Send to Drive unlocks when the upscale is done.</div>'):g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
+    ${g.st==="upscaling"?(g.stuck?`<div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button></div>`:'<div class="note">Send unlocks when the upscale is done.</div>')
+      :S.ui.finDel===g.id?`<div class="confirm">Delete this final for good?</div><div class="row fill"><button class="btn" data-a="findelno">Keep</button><button class="btn bad" data-a="findelyes" data-id="${g.id}">Delete</button></div>`
+      :`<div class="row fill">${g.drive?`<button class="btn ok" data-a="send" data-id="${g.id}" title="Send again">Sent ✓</button>`:`<button class="btn pri" data-a="send" data-id="${g.id}">${g.sending?"Sending…":"Send to Photos"}</button>`}<button class="btn bad" data-a="findel" data-id="${g.id}" aria-label="Delete">Delete</button></div>${g.drive?"":`<button class="btn" data-a="unfinal" data-id="${g.id}" style="font-size:12px;padding:5px">Back to Generations</button>`}`}
+  </div>`};
+  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Send saves the video to your Finals folder, which Google Drive for desktop backs up to Google Photos.</p></div><div class="row"><span class="example">Example data</span><button class="btn" data-a="openexport">Open Finals folder</button></div></div>
+  ${selectable.length?`<div class="row panel" style="margin-bottom:16px;padding:10px 14px">
+    <label class="check"><input type="checkbox" data-a="finall" ${allOn?"checked":""}>Select all (${selectable.length})</label>
+    <span class="note">${selList.length} selected</span><span class="sp"></span>
+    ${S.ui.finBulkDel?`<span class="confirm">Delete ${selList.length} clip${selList.length===1?"":"s"}?</span><button class="btn" data-a="finbulkdelno">Keep</button><button class="btn bad" data-a="finbulkdelyes">Yes, delete</button>`
+      :`<button class="btn pri" data-a="finbulksend" ${selList.some(g=>!g.drive)?"":"disabled"}>Send selected${selList.some(g=>g.drive)?" (skips sent)":""}</button><button class="btn bad" data-a="finbulkdel" ${selList.length?"":"disabled"}>Delete selected</button>`}
+  </div>`:""}
+  ${list.length?`<div class="vids">${list.map(tile).join("")}</div>`:'<div class="empty">No finals yet. Approve clips in Generations.</div>'}`;
 },
 library(){
   const t=S.ui.libTab,list=t==="hooks"?S.hooks:S.reveals,kind=t==="hooks"?"hook":"rev";
@@ -511,6 +527,12 @@ connection(){
       <ol class="steps-list" style="margin-bottom:10px"><li>Open the Claude chat that generates the videos you like.</li><li>Send it this message:<code class="cmd">Write a complete playbook of exactly how you generate my videos in this chat, so another Claude can repeat it 1:1: which Higgsfield models and settings, how you write the prompts (with the template), which references you attach and how, what you avoid, the steps in order, and the 2-3 prompts that worked best. One message, in markdown.</code></li><li>Paste its answer below and press Save playbook.</li></ol>
       <textarea id="st-playbook" style="min-height:${(s0=>s0&&s0.length>200?260:120)((SETTINGS||{}).playbook)}px" placeholder="Paste the playbook here…">${esc((SETTINGS||{}).playbook||"")}</textarea>
       <div class="row" style="margin-top:8px"><button class="btn pri" data-a="saveplaybook" ${window.studio?"":"disabled"}>Save playbook</button><span class="note">${(SETTINGS||{}).playbook?`${(SETTINGS.playbook.length).toLocaleString()} characters saved`:"Not set yet"}</span></div>
+    </section>
+    <section class="panel"><h3>Finals folder → Google Photos</h3>
+      <p class="note" style="margin-top:-4px">Send saves finished videos here, in a folder per product.</p>
+      <code class="cmd" id="expdir">${esc(S.ui.expDir||"…")}</code>
+      <div class="row"><button class="btn" data-a="pickexport" ${window.studio?"":"disabled"}>Change folder</button><button class="btn" data-a="openexport2" ${window.studio?"":"disabled"}>Open folder</button></div>
+      <ol class="steps-list" style="margin-top:10px"><li>Install <b>Google Drive for desktop</b> (google.com/drive/download) and sign in with your Google account.</li><li>Open its settings → <b>My Computer</b> → <b>Add folder</b> → pick the folder above.</li><li>Tick <b>Back up to Google Photos</b> → Save.</li><li>Every video you Send now uploads to Google Photos by itself.</li></ol>
     </section>
     <section class="panel"><h3>One-time setup</h3>
       <ol class="steps-list">
@@ -587,14 +609,15 @@ const LIVE={
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});S.credits+=r.credits||0}else g.st="ready"})},
   approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling with Topaz");
     g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.drive=false;toast("Upscaled · in Finals")}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
-  drive(b,id){const g=S.gens.find(x=>x.id===id),pr=P(g.pid);runJob("drive",`Drive · ${g.hook}`,{video:g.video,product:pr?pr.name:"",name:`${g.hook} + ${g.reveal}`},r=>{if(r.ok){g.drive=true;g.drive_url=r.drive_url}})},
-  driveall(){S.gens.filter(g=>g.st==="final"&&!g.drive).forEach(g=>LIVE.drive(null,g.id))}
+  _driveall(){}
 };
 const CONN={
   mode(b){const m=b.dataset.v;if(m===MODE)return;save();MODE=m;try{localStorage.setItem("vs-mode",m)}catch(e){}S=load();toast(m==="live"?"Live mode: buttons now run Claude Code":"Showing example data")},
   async cccheck(){CC={checked:false};render();CC={checked:true,...await window.studio.checkClaude()};render()},
   ping(){S.ui.ping={running:true};runJob("ping","Connection test",{},r=>{S.ui.ping=r})},
   openws(){window.studio.openWorkspace()},
+  async pickexport(){S.ui.expDir=await window.studio.pickExportDir();render()},
+  openexport2(){window.studio.openExportDir()},
   async saveplaybook(){SETTINGS=await window.studio.setSettings({playbook:$("#st-playbook").value});toast("Playbook saved. Generate and Fix jobs will follow it");render()},
   goconn(){location.hash="connection"}
 };
@@ -631,6 +654,7 @@ function getFromHiggsfield(g){
 async function boot(){
   if(!window.studio){CC={checked:true,ok:false,version:""};if(MODE==="live"){MODE="example";S=load()}render();return}
   try{SETTINGS=await window.studio.getSettings();WS=SETTINGS.workspace||""}catch(e){}
+  try{S.ui.expDir=await window.studio.exportDir()}catch(e){}
   render();
   try{CC={checked:true,...await window.studio.checkClaude()}}catch(e){CC={checked:true,ok:false}}
   render();
@@ -803,6 +827,15 @@ function viewModal(){
     ${g.prompt?`<details style="width:100%"><summary class="note" style="cursor:pointer">Prompt used</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:200px;overflow:auto">${esc(g.prompt)}</pre></details>`:""}
   </div></div>`;
 }
+async function sendFinal(g){
+  if(g.sending)return;
+  const pr=P(g.pid),name=[pr?pr.name:"",g.hook,g.reveal].filter(Boolean).join(" - ");
+  if(!window.studio||!window.studio.exportVideo){g.drive=true;toast("Sent (example)");return}
+  g.sending=true;render();
+  try{const f=await window.studio.exportVideo({src:media(g.video),product:pr?pr.name:"Videos",name});g.drive=true;g.sentFile=f;toast("Saved to Finals folder · Google Photos will back it up")}
+  catch(e){toast("Couldn't save: "+String(e.message||e).replace(/^Error invoking remote method[^:]*: /,""))}
+  g.sending=false;S.ui.finSel=(S.ui.finSel||[]).filter(x=>x!==g.id);render();
+}
 function gTile(g){
   const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
   let act;
@@ -814,7 +847,7 @@ function gTile(g){
   return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
 }
 
-function route(){const h=(location.hash||"#products").slice(1);return V[h]&&h!=="product"?h:"products"}
+function route(){let h=(location.hash||"#products").slice(1);if(h==="library")h="concepts";return V[h]&&h!=="product"?h:"products"}
 function render(){
   const v=route();
   document.querySelectorAll(".nav").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v?"page":"false"));
@@ -872,8 +905,16 @@ $("#main").addEventListener("click",e=>{
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
     case"approve":gen.st="upscaling";toast("Moved to Finals · upscaling with Topaz");later(2500,()=>{gen.st="final";gen.drive=false});break;
     case"unfinal":gen.st="ready";break;
-    case"drive":gen.drive=true;toast("Sent to Google Drive");break;
-    case"driveall":S.gens.filter(g=>g.st==="final").forEach(g=>g.drive=true);toast("All sent to Google Drive");break;
+    case"send":sendFinal(gen);return;
+    case"findel":S.ui.finDel=id;break;
+    case"findelno":S.ui.finDel=null;break;
+    case"findelyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.finDel=null;toast("Deleted");break;
+    case"finall":{const ids=S.gens.filter(g=>g.st==="final").map(g=>g.id);S.ui.finSel=(S.ui.finSel||[]).length===ids.length?[]:ids;break}
+    case"finbulksend":{const ids=S.ui.finSel||[];(async()=>{for(const g of S.gens.filter(g=>ids.includes(g.id)&&!g.drive))await sendFinal(g);S.ui.finSel=[];render()})();return}
+    case"finbulkdel":S.ui.finBulkDel=true;break;
+    case"finbulkdelno":S.ui.finBulkDel=false;break;
+    case"finbulkdelyes":{const ids=S.ui.finSel||[];S.gens=S.gens.filter(g=>!ids.includes(g.id));toast(`Deleted ${ids.length}`);S.ui.finSel=[];S.ui.finBulkDel=false;break}
+    case"openexport":if(window.studio&&window.studio.openExportDir)window.studio.openExportDir();else toast("Only in the desktop app");return;
     case"rn":S.ui.editing=id;break;
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"ask":S.ui.delAsk=id;break;
@@ -922,6 +963,7 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.finsel){const id=t.dataset.finsel;S.ui.finSel=S.ui.finSel||[];S.ui.finSel=t.checked?[...S.ui.finSel,id]:S.ui.finSel.filter(x=>x!==id);render();return}
   if(t.dataset&&t.dataset.relink&&t.files&&t.files.length){const list=t.dataset.relink==="hook"?S.hooks:S.reveals;let n=0;const miss=[];
     for(const f of [...t.files]){const x=list.find(i=>i.clipName===f.name&&!i.clip);if(!x){miss.push(f.name);continue}try{const fp=await saveFile(f);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;n++}catch(err){miss.push(f.name)}}
     toast(`Attached ${n} clip${n===1?"":"s"}${miss.length?` · no match for ${miss.length}`:""}`);render();return}

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, shell, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, Menu, dialog, ipcMain, net } = require('electron');
+const { pathToFileURL, fileURLToPath } = require('url');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -24,7 +25,8 @@ const DEFAULT_SETTINGS = {
   permissionMode: 'auto',
   useChrome: true,
   allowedTools: 'Read Write Edit Glob Grep Bash WebFetch WebSearch',
-  maxCreditsPerVideo: 150
+  maxCreditsPerVideo: 150,
+  exportDir: ''
 };
 function readSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) }; }
@@ -122,6 +124,34 @@ ipcMain.handle('cc:check', async () => {
 ipcMain.handle('settings:get', () => ({ ...readSettings(), workspace: ws() }));
 ipcMain.handle('settings:set', (_e, s) => { writeSettings(s); try { writePlaybook(); } catch (err) { log('playbook: ' + err); } return readSettings(); });
 ipcMain.handle('ws:open', () => shell.openPath(ws()));
+
+// ---------- export finals to a local folder (Google Drive for desktop backs it up to Google Photos) ----------
+const exportDir = () => readSettings().exportDir || path.join(app.getPath('documents'), 'Viral Studio', 'Finals');
+const clean = (t) => String(t || 'video').replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'video';
+ipcMain.handle('export:dir', () => exportDir());
+ipcMain.handle('export:open', () => { fs.mkdirSync(exportDir(), { recursive: true }); return shell.openPath(exportDir()); });
+ipcMain.handle('export:pick', async () => {
+  const r = await dialog.showOpenDialog({ title: 'Folder for finished videos', defaultPath: exportDir(), properties: ['openDirectory', 'createDirectory'] });
+  if (r.canceled || !r.filePaths[0]) return exportDir();
+  writeSettings({ exportDir: r.filePaths[0] });
+  return exportDir();
+});
+ipcMain.handle('export:video', async (_e, { src, product, name }) => {
+  const dir = path.join(exportDir(), clean(product));
+  fs.mkdirSync(dir, { recursive: true });
+  let file = path.join(dir, clean(name) + '.mp4'), i = 2;
+  while (fs.existsSync(file)) file = path.join(dir, `${clean(name)} (${i++}).mp4`);
+  if (/^https?:/i.test(src)) {
+    const res = await net.fetch(src);
+    if (!res.ok) throw new Error('Download failed: ' + res.status);
+    fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+  } else {
+    const from = /^file:/i.test(src) ? fileURLToPath(src) : path.join(ws(), src);
+    fs.copyFileSync(from, file);
+  }
+  log('exported ' + file);
+  return file;
+});
 ipcMain.handle('media:save', (_e, name, bytes) => {
   const safe = String(name || 'file').replace(/[^A-Za-z0-9._-]/g, '_').slice(-80);
   const fn = Date.now().toString(36) + '-' + safe;
