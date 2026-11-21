@@ -231,6 +231,10 @@ ol.steps-list li{margin:4px 0}
 .pastlist{display:flex;flex-direction:column;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:260px;overflow:auto}
 .pastitem{border-bottom:1px solid var(--line);padding-bottom:8px}
 .pastitem:last-child{border-bottom:0;padding-bottom:0}
+.orig{font-size:12px;color:var(--accent2);margin:0 0 4px}
+table.bd{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+table.bd th,table.bd td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+table.bd th{color:var(--muted);font-weight:600}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -580,7 +584,7 @@ function libCard(x,kind,mode){
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} draggable="true" data-drag="${x.id}" data-dragkind="${kind}" style="grid-template-columns:110px 1fr"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span>
     <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<label style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:2;cursor:pointer;font-size:11px;color:var(--muted);padding:8px">${x.clipName?"Clip missing.<br>Click to add":"No clip.<br>Click to add"}<input type="file" accept="video/*" data-up="${x.id}" style="display:none"></label>`}</div>
-    <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">${x.own?`<span class="pill pk">${x.full?"My full video":"My own clip"}</span>`:`Fits: ${esc(x.fits)}`}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
+    <div style="min-width:0">${name}<p>${esc(x.desc)}</p>${x.analysis?`<div class="fits"><span class="pill ok">Analyzed ✓</span></div>`:""}<div class="fits">${x.own?`<span class="pill pk">${x.full?"My full video":"My own clip"}</span>`:`Fits: ${esc(x.fits)}`}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
       ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}
       <div class="tools">${mode==="pick"?`<button class="btn cy" data-a="genask" data-id="${x.id}" data-k="${kind}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
@@ -709,21 +713,41 @@ function productInfo(pr){
     photos:pr.photos||[],logo:(pr.art||{}).logo||"",box:(pr.art||{}).box||"",collage:(pr.art||{}).collage||"",cover:(pr.art||{}).cover||"",
     refs:refsOf(pr),source_reel:pr.url||"",notes:pr.notes||"",note_files:(pr.noteFiles||[]).map(f=>f.path),playbook:pr.playbook||""};
 }
+function analyzing(x){return Object.values(JOBS).some(j=>j.type==="analyze"&&j.cid===x.id)}
+function hasRef(x){return !!(x.clip||CLIPS[x.id]||x.url)}
+function analyzeClip(x){
+  if(MODE!=="live"||!window.studio||!hasRef(x)||analyzing(x))return;
+  const id=runJob("analyze","Breakdown · "+x.name,{name:x.name,desc:x.desc||"",clip:x.clip||"",url:x.url||""},r=>{if(r.ok){const {ok,_session,...a}=r;x.analysis=a;toast("Breakdown ready: "+x.name)}});
+  JOBS[id].cid=x.id;
+}
+function breakdown(x){
+  if(!hasRef(x))return `<div class="orig" style="margin:0">This ${x.own?"clip":"hook"} has no reference video, so Claude builds it from the description. Upload a clip on the card to get a shot-by-shot breakdown.</div>`;
+  if(analyzing(x))return `<div class="panel" style="padding:12px"><span class="scrolling"><span class="spin"></span>Claude is studying the reference: every shot, camera, people, dialogue, sounds, why it works…</span></div>`;
+  const a=x.analysis;
+  if(!a)return `<div class="row"><span class="note">No breakdown yet.</span><button class="btn cy" data-a="analyze" data-id="${x.id}">Analyze the reference</button></div>`;
+  const shots=a.shots||[];
+  return `<details class="ocgrp" open><summary>Claude's breakdown of the reference ${a.duration?`· ${esc(a.duration)}`:""} ${shots.length?`· ${shots.length} shots`:""}</summary>
+    ${a.why_it_works?`<p style="margin:8px 0 4px"><b>Why it works:</b> ${esc(a.why_it_works)}</p>`:""}${a.summary?`<p class="note" style="margin:4px 0">${esc(a.summary)}</p>`:""}
+    ${shots.length?`<div style="overflow-x:auto"><table class="bd"><thead><tr><th>Time</th><th>Camera</th><th>What happens</th><th>Dialogue / sound</th></tr></thead><tbody>${shots.map(sh=>`<tr><td>${esc(sh.t||"")}</td><td>${esc(sh.camera||"")}</td><td>${esc([sh.people,sh.action,sh.setting].filter(Boolean).join(" · "))}${sh.text_on_screen?`<div class="note">Text: ${esc(sh.text_on_screen)}</div>`:""}</td><td>${esc([sh.dialogue&&`"${sh.dialogue}"`,sh.sound].filter(Boolean).join(" · "))}</td></tr>`).join("")}</tbody></table></div>`:""}
+    <div class="row" style="margin-top:8px"><button class="btn" data-a="analyze" data-id="${x.id}" style="font-size:12px;padding:4px 10px">Analyze again</button></div>
+  </details>`;
+}
 function genModal(){
   const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(!x)return "";
   const pr=P(S.concept.pid),isHook=S.ui.genKind==="hook",eng=S.ui.genEngine||"Seedance";
-  const SG=suggFor(pr);const q=(id,label,ph,area,key)=>`<div class="f"><label class="f" for="${id}">${label}</label>${chips(id,SG[key])}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</div>`;
+  const SG=suggFor(pr),AN=x.analysis||null,orig={people:AN&&AN.people,background:AN&&(AN.setting||AN.location),script:AN&&AN.dialogue_full,mood:AN&&AN.mood,other:AN&&AN.camera_style};const q=(id,label,ph,area,key)=>`<div class="f"><label class="f" for="${id}">${label}</label>${orig[key]?`<div class="orig">Original: ${esc(orig[key])}</div>`:""}${chips(id,SG[key])}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</div>`;
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="Generate ${esc(x.name)}"><div class="modal-box">
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Generate this ${isHook?"hook":"reveal"}${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">${esc(x.name)}</h2></div><button class="btn" data-a="gencancel" aria-label="Close">✕</button></div>
     <div class="row" style="justify-content:space-between"><p class="note" style="margin:0">Click an option or type your own. Leave a question empty to keep it like the original ${isHook?"hook":"reveal"}.</p>${suggBar(pr,x)}</div>
+    ${breakdown(x)}
     <div class="form">
       <div><div class="note" style="margin-bottom:6px">Engine</div><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="geneng" data-v="Seedance">Seedance · build from scratch</button><button aria-pressed="${eng==="Genjutsu"}" data-a="geneng" data-v="Genjutsu">Genjutsu · swap into the clip</button></div></div>
       <div class="two">${q("gq-people","People: who should be in it?","e.g. young dad, 30s, beard, grey hoodie",false,"people")}${q("gq-bg","Background / location","e.g. Walmart toy aisle, cozy living room",false,"background")}</div>
       ${q("gq-script","Script: what do they say?","e.g. Wife whispers: \"Don't tell my husband…\" then he finds the box",true,"script")}
-      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked",false,"mood")}<label class="f">Length (seconds)${chips("gq-len",["5s","6s","8s","10s","15s"])}<input type="text" id="gq-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label></div>
+      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked",false,"mood")}<label class="f">Length (seconds)${AN&&AN.duration?`<div class="orig">Original: ${esc(AN.duration)}</div>`:""}${chips("gq-len",["5s","6s","8s","10s","15s"])}<input type="text" id="gq-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label></div>
       ${q("gq-other","Anything else to change?","e.g. product in close-up at second 2, night time",true,"other")}
       ${pr?"":`<p style="color:var(--bad)">Pick a product with a finished brand kit at the top of Concepts first.</p>`}
-      <div class="row" style="justify-content:flex-end"><button class="btn" data-a="gencancel">Cancel</button><button class="btn pri big" data-a="gengo" ${pr?"":"disabled"}>Generate</button></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-a="gencancel">Cancel</button>${analyzing(x)?`<button class="btn" data-a="gengo" ${pr?"":"disabled"} title="Generate without waiting for the analysis">Generate without breakdown</button>`:""}<button class="btn pri big" data-a="gengo" ${pr&&!analyzing(x)?"":"disabled"}>${analyzing(x)?"Waiting for breakdown…":"Generate"}</button></div>
     </div></div></div>`;
 }
 const OC_ANGLES=["Product close-up","Wide shot","First-person POV","Low angle","Overhead / top-down","Reaction close-up","Over the shoulder","Selfie"];
@@ -816,7 +840,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
   S.gens.unshift(g);S.ui.genFor=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
-    const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null};
+    const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null,analysis:x.analysis||null};
     g.started=Date.now();g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
   }else{S.credits+=72;later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
@@ -1004,7 +1028,7 @@ $("#main").addEventListener("click",e=>{
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"ask":S.ui.delAsk=id;break;
     case"nodel":S.ui.delAsk=null;break;
-    case"genask":{S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(pr&&!pr.sugg)askSugg(pr,x);break}
+    case"genask":{S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(pr&&!pr.sugg)askSugg(pr,x);if(x&&!x.analysis)analyzeClip(x);break}
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
     case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim()});S.ui.genFor=null;break}
     case"gencancel":S.ui.genFor=null;break;
@@ -1022,6 +1046,7 @@ $("#main").addEventListener("click",e=>{
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;S.ui.viewVid=null;break;
+    case"analyze":{const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(MODE!=="live"){toast("The breakdown comes from Claude in Live mode");return}if(x){x.analysis=null;analyzeClip(x)}break}
     case"viewver":S.ui.viewVid=b.dataset.v;break;
     case"sugg":{const el=$("#"+b.dataset.for);if(el){el.value=b.dataset.v;el.dispatchEvent(new Event("input"))}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
     case"suggother":{const el=$("#"+b.dataset.for);if(el){el.value="";el.focus()}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
