@@ -475,13 +475,13 @@ finals(){
   const sel=S.ui.finSel||[];const selList=selectable.filter(g=>sel.includes(g.id));
   const allOn=selectable.length&&selList.length===selectable.length;
   const tile=g=>{const p=P(g.pid);const on=sel.includes(g.id);return `<div class="vid${on?" selon":""}">
-    <div class="player" style="${g.st==="upscaling"?"background:var(--panel2)":bg(g)}">${g.st==="upscaling"?"":vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling with Topaz…</b><span data-job="${esc(g.jobId||"")}">${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:`<label class="selbox" title="Select"><input type="checkbox" data-finsel="${g.id}" ${on?"checked":""}></label>`}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → 1080p":"1080p"}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok r">Sent ✓</span>':""}</div>
+    <div class="player" style="${g.st==="upscaling"?"background:var(--panel2)":bg(g)}">${g.st==="upscaling"?"":vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling…</b><span data-job="${esc(g.jobId||"")}">${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:`<label class="selbox" title="Select"><input type="checkbox" data-finsel="${g.id}" ${on?"checked":""}></label>`}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → HD":esc(g.upSpec||"1080p")}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok r">Sent ✓</span>':""}</div>
     <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video&&g.st!=="upscaling"?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
     ${g.st==="upscaling"?(g.stuck?`<div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button></div>`:'<div class="note">Send unlocks when the upscale is done.</div>')
       :S.ui.finDel===g.id?`<div class="confirm">Delete this final for good?</div><div class="row fill"><button class="btn" data-a="findelno">Keep</button><button class="btn bad" data-a="findelyes" data-id="${g.id}">Delete</button></div>`
       :`<div class="row fill">${g.drive?`<button class="btn ok" data-a="send" data-id="${g.id}" title="Send again">Sent ✓</button>`:`<button class="btn pri" data-a="send" data-id="${g.id}">${g.sending?"Sending…":"Send to Drive"}</button>`}<button class="btn bad" data-a="findel" data-id="${g.id}" aria-label="Delete">Delete</button></div>${g.drive?"":`<button class="btn" data-a="unfinal" data-id="${g.id}" style="font-size:12px;padding:5px">Back to Generations</button>`}`}
   </div>`};
-  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Send to Drive saves the video to your Finals folder, which Google Drive for desktop uploads for you.</p></div><div class="row"><span class="example">Example data</span><button class="btn" data-a="openexport">Open Finals folder</button></div></div>
+  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled (Topaz Starlight Precise · 1080p · 60 FPS by default, see Connection). Send to Drive saves the video to your Finals folder, which Google Drive for desktop uploads for you.</p></div><div class="row"><span class="example">Example data</span><button class="btn" data-a="openexport">Open Finals folder</button></div></div>
   ${selectable.length?`<div class="row panel" style="margin-bottom:16px;padding:10px 14px">
     <label class="check"><input type="checkbox" data-a="finall" ${allOn?"checked":""}>Select all (${selectable.length})</label>
     <span class="note">${selList.length} selected</span><span class="sp"></span>
@@ -520,6 +520,10 @@ connection(){
         <label class="f">Always-allowed tools (space separated)<input type="text" id="st-tools" value="${esc(s.allowedTools||"")}"></label>
         <div class="two"><label class="f">Max credits per video<input type="text" inputmode="numeric" id="st-max" value="${esc(s.maxCreditsPerVideo||150)}"></label>
         <label class="check" style="margin-top:18px"><input type="checkbox" id="st-chrome" ${s.useChrome!==false?"checked":""}>Use Claude in Chrome for scrolling</label></div>
+        <div class="two"><label class="f">Upscale method<select id="st-upm"><option value="web" ${(s.upscaleMethod||"web")==="web"?"selected":""}>Higgsfield website in Chrome (exact settings)</option><option value="api" ${s.upscaleMethod==="api"?"selected":""}>Direct Topaz 1080p (fast, no model/FPS choice)</option></select></label>
+        <label class="f">Upscale model<input type="text" id="st-upmodel" value="${esc(s.upscaleModel||"Topaz Starlight Precise")}"></label></div>
+        <div class="two"><label class="f">Upscale resolution<select id="st-upres">${["1080p","2K","4K"].map(r=>`<option ${r===(s.upscaleRes||"1080p")?"selected":""}>${r}</option>`).join("")}</select></label>
+        <label class="f">Upscale frame rate<select id="st-upfps">${["24 FPS","30 FPS","60 FPS"].map(r=>`<option ${r===(s.upscaleFps||"60 FPS")?"selected":""}>${r}</option>`).join("")}</select></label></div>
         <div class="row"><button class="btn pri" type="submit" ${inApp?"":"disabled"}>Save settings</button><button class="btn" type="button" data-a="openws" ${inApp?"":"disabled"}>Open work folder</button></div>
         <p class="note">Work folder: ${esc(WS||"—")}</p>
       </form>
@@ -615,8 +619,8 @@ const LIVE={
     g.started=Date.now();g.stuck=false;const hx=S.hooks.find(h=>h.name===g.hook),rx=S.reveals.find(h=>h.name===g.reveal);
     g.jobId=runJob("fix",`Fix · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:"",clip:hx?hx.clip||"":""}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:"",clip:rx?rx.clip||"":""}:null,changes:g.changes||{},previous_job_id:g.job_id||"",engine:g.engine,source:pr.url||"",note,previous_prompt:g.prompt||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});S.credits+=r.credits||0}else g.st="ready"})},
-  approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling with Topaz");
-    g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.drive=false;toast("Upscaled · in Finals")}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
+  approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling");
+    g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id,video:g.video||"",method:(SETTINGS&&SETTINGS.upscaleMethod)||"web",settings:{model:(SETTINGS&&SETTINGS.upscaleModel)||"Topaz Starlight Precise",resolution:(SETTINGS&&SETTINGS.upscaleRes)||"1080p",fps:(SETTINGS&&SETTINGS.upscaleFps)||"60 FPS"},useChrome:((SETTINGS&&SETTINGS.upscaleMethod)||"web")==="web"},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.upSpec=r.settings_used||"";g.drive=false;toast("Upscaled · in Finals")}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
   _driveall(){}
 };
 const CONN={
@@ -630,7 +634,7 @@ const CONN={
   goconn(){location.hash="connection"}
 };
 document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e.preventDefault();
-  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked});
+  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked,upscaleMethod:$("#st-upm").value,upscaleModel:$("#st-upmodel").value.trim()||"Topaz Starlight Precise",upscaleRes:$("#st-upres").value,upscaleFps:$("#st-upfps").value});
   toast("Settings saved");render()});
 function applyResult(g,type,r){
   if(!r||!r.ok)return false;
@@ -878,7 +882,7 @@ function gTile(g){
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
-  else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
+  else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling, then moves to Finals"}</div>`;
   return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
 }
 
@@ -940,7 +944,7 @@ $("#main").addEventListener("click",e=>{
     case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
     case"dropno":S.ui.dropAsk=null;break;
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
-    case"approve":gen.st="upscaling";toast("Moved to Finals · upscaling with Topaz");later(2500,()=>{gen.st="final";gen.drive=false});break;
+    case"approve":gen.st="upscaling";toast("Moved to Finals · upscaling");later(2500,()=>{gen.st="final";gen.drive=false});break;
     case"unfinal":gen.st="ready";break;
     case"send":sendFinal(gen);return;
     case"findel":S.ui.finDel=id;break;

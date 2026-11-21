@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS = {
   useChrome: true,
   allowedTools: 'Read Write Edit Glob Grep Bash WebFetch WebSearch',
   maxCreditsPerVideo: 150,
+  upscaleMethod: 'web',
   exportDir: ''
 };
 function readSettings() {
@@ -170,7 +171,9 @@ ipcMain.handle('job:start', (e, job) => {
 
   const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', s.permissionMode];
   if (s.allowedTools.trim()) args.push('--allowedTools', ...s.allowedTools.trim().split(/\s+/));
-  if (s.useChrome && job.type === 'scroll') args.push('--chrome');
+  // Jobs that browse Instagram, TikTok, the web or the Higgsfield website need the user's Chrome.
+  const chromeJobs = ['scroll', 'findclips', 'handles', 'usernames', 'competitors', 'recover'];
+  if (s.useChrome && (chromeJobs.includes(job.type) || (job.input && job.input.useChrome))) args.push('--chrome');
   const prompt = `You are the Viral Studio worker. Read CLAUDE.md in this folder, then do job ${id} (jobs/${id}.json). Write results/${id}.json exactly as CLAUDE.md describes, then stop.`;
 
   log(`job ${id} ${job.type} start`);

@@ -101,8 +101,11 @@ Result: `{"ok":true,"video":"<url>","job_id":"<higgsfield job id>","duration":"0
 Input: same as `generate` plus `note` and `previous_prompt`. Change only what the note asks. Same result shape as `generate`.
 
 ### `upscale`
-Input: `job_id` (Higgsfield video job id). Use `upscale_video` with provider `topaz`, resolution `1080p`, aspect `9:16`.
-Result: `{"ok":true,"video":"<url>","job_id":"<upscale job id>"}`
+Input: `job_id` (Higgsfield video job id), `video` (the clip's current file/url), `method` (`web` | `api`), `settings` (`{model, resolution, fps}`, default Topaz Starlight Precise · 1080p · 60 FPS).
+- `method: "web"` (the user's exact settings): use Claude in Chrome on the Higgsfield website, where the user is logged in. Open Higgsfield's video upscale tool, pick the source video (it's in the user's Higgsfield history from `job_id`; otherwise download `video` into `media/` and upload it), set **Model = `settings.model`**, **Resolution = `settings.resolution`**, **Frame rate = `settings.fps`** exactly, start it, wait until it's done, then download the result into `media/` and return that path. Never silently use other settings: if one of them isn't available, stop and return `{"ok":false,"error":"<which setting is missing on the page>"}`. If you aren't logged in, return an error saying so.
+- `method: "api"`: use `upscale_video` with provider `topaz`, resolution `1080p`, aspect `9:16` (no model or FPS choice).
+Write `results/<id>.partial.json` with the upscale job id as soon as it starts, like generations.
+Result: `{"ok":true,"video":"<media path or url>","job_id":"<upscale job id or empty>","settings_used":"Topaz Starlight Precise · 1080p · 60 FPS"}`
 
 ### `drive`
 Input: `video` (url), `product`, `name`. Download the video and upload it to Google Drive folder `Viral Studio/<product>/To edit`.

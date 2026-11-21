@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('studio', {
   platform: process.platform,
-  version: '0.10.0',
+  version: '0.11.0',
   checkClaude: () => ipcRenderer.invoke('cc:check'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (s) => ipcRenderer.invoke('settings:set', s),
