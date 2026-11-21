@@ -246,9 +246,10 @@ async function readVideo(src) {
 }
 
 ipcMain.handle('gp:upload', async (_e, { src, product, name }) => {
-  const buf = await readVideo(src);
-  const ext = sniffVideo(buf);
-  if (!ext) throw new Error("This clip isn't a video file.");
+  let buf = await readVideo(src);
+  if (!sniffVideo(buf)) throw new Error("This clip isn't a video file.");
+  try { buf = await toPhoneMp4(buf); } catch (err) { log('convert failed, uploading original: ' + err); }
+  const ext = sniffVideo(buf) || 'mp4';
   const mime = ext === 'mov' ? 'video/quicktime' : ext === 'webm' ? 'video/webm' : 'video/mp4';
   const token = await gpToken();
   const up = await net.fetch('https://photoslibrary.googleapis.com/v1/uploads', {
@@ -286,6 +287,23 @@ async function probe(file) {
   const out = await runFfmpeg(['-hide_banner', '-i', file]).catch((e) => String(e.message));
   const fps = parseFloat((out.match(/, ([\d.]+) fps/) || [])[1]) || 30;
   return { audio: /Stream #.*Audio:/.test(out), fps };
+}
+// Make any video phone-friendly: H.264 + AAC MP4 (adds silence if the clip has no sound).
+async function toPhoneMp4(buf) {
+  const tmp = path.join(ws(), 'media', 'conv-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex'));
+  fs.mkdirSync(tmp, { recursive: true });
+  const inp = path.join(tmp, 'in.' + (sniffVideo(buf) || 'mp4')), out = path.join(tmp, 'out.mp4');
+  fs.writeFileSync(inp, buf);
+  try {
+    const info = await probe(inp);
+    const args = ['-y', '-i', inp];
+    if (!info.audio) args.push('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo');
+    args.push('-map', '0:v:0', '-map', info.audio ? '0:a:0' : '1:a:0', '-shortest',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
+      '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', out);
+    await runFfmpeg(args);
+    return fs.readFileSync(out);
+  } finally { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {} }
 }
 // Join clips in order into one vertical 1080x1920 video, adding silence to clips without sound.
 ipcMain.handle('video:join', async (_e, { srcs, product, name }) => {
@@ -332,8 +350,9 @@ ipcMain.handle('export:video', async (_e, { src, product, name }) => {
     const from = /^file:/i.test(src) ? fileURLToPath(src) : path.join(ws(), src);
     buf = fs.readFileSync(from);
   }
-  const ext = sniffVideo(buf);
-  if (!ext) throw new Error("This clip isn't a video file (" + buf.length + " bytes). Open it with Watch, or Fix it to regenerate.");
+  if (!sniffVideo(buf)) throw new Error("This clip isn't a video file (" + buf.length + " bytes). Open it with Watch, or Fix it to regenerate.");
+  try { buf = await toPhoneMp4(buf); } catch (err) { log('convert failed, saving original: ' + err); }
+  const ext = sniffVideo(buf) || 'mp4';
   const dir = path.join(exportDir(), clean(product));
   fs.mkdirSync(dir, { recursive: true });
   let file = path.join(dir, `${clean(name)}.${ext}`), i = 2;
