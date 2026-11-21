@@ -216,7 +216,7 @@ ol.steps-list li{margin:4px 0}
 .ocgrp{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--panel2)}
 .ocgrp summary{cursor:pointer;font-family:var(--display);font-weight:600}
 .chip input{accent-color:var(--accent2)}
-.upov{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(8,8,14,.62);text-align:center;padding:10px;font-size:12px}
+.upov{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(8,8,14,.45);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);text-align:center;padding:10px;font-size:12px}
 .upov span:last-child{color:var(--muted);font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .selbox{position:absolute;top:8px;left:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:6px;padding:3px 5px;cursor:pointer}
 .selbox input{width:18px;height:18px;accent-color:var(--accent2);cursor:pointer}
@@ -473,8 +473,8 @@ finals(){
   const sel=S.ui.finSel||[];const selList=selectable.filter(g=>sel.includes(g.id));
   const allOn=selectable.length&&selList.length===selectable.length;
   const tile=g=>{const p=P(g.pid);const on=sel.includes(g.id);return `<div class="vid${on?" selon":""}">
-    <div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling with Topaz…</b><span>${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:`<label class="selbox" title="Select"><input type="checkbox" data-finsel="${g.id}" ${on?"checked":""}></label>`}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → 1080p":"1080p"}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok r">Sent ✓</span>':""}</div>
-    <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
+    <div class="player" style="${g.st==="upscaling"?"background:var(--panel2)":bg(g)}">${g.st==="upscaling"?"":vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling with Topaz…</b><span data-job="${esc(g.jobId||"")}">${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:`<label class="selbox" title="Select"><input type="checkbox" data-finsel="${g.id}" ${on?"checked":""}></label>`}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → 1080p":"1080p"}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok r">Sent ✓</span>':""}</div>
+    <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video&&g.st!=="upscaling"?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
     ${g.st==="upscaling"?(g.stuck?`<div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button></div>`:'<div class="note">Send unlocks when the upscale is done.</div>')
       :S.ui.finDel===g.id?`<div class="confirm">Delete this final for good?</div><div class="row fill"><button class="btn" data-a="findelno">Keep</button><button class="btn bad" data-a="findelyes" data-id="${g.id}">Delete</button></div>`
       :`<div class="row fill">${g.drive?`<button class="btn ok" data-a="send" data-id="${g.id}" title="Send again">Sent ✓</button>`:`<button class="btn pri" data-a="send" data-id="${g.id}">${g.sending?"Sending…":"Send to Photos"}</button>`}<button class="btn bad" data-a="findel" data-id="${g.id}" aria-label="Delete">Delete</button></div>${g.drive?"":`<button class="btn" data-a="unfinal" data-id="${g.id}" style="font-size:12px;padding:5px">Back to Generations</button>`}`}
@@ -575,7 +575,7 @@ function runJob(type,label,input,onDone){
 }
 if(window.studio)window.studio.onJobEvent(m=>{
   const j=JOBS[m.id];if(!j)return;
-  if(m.kind==="progress"){j.progress=m.text;jobsUI();return}
+  if(m.kind==="progress"){j.progress=m.text;jobsUI();document.querySelectorAll(`[data-job="${m.id}"]`).forEach(el=>el.textContent=m.text);return}
   delete JOBS[m.id];
   const r=m.result||{ok:false,error:"No result"};
   try{j.onDone(r)}catch(err){console.error(err)}
@@ -837,14 +837,14 @@ async function sendFinal(g){
   g.sending=false;S.ui.finSel=(S.ui.finSel||[]).filter(x=>x!==g.id);render();
 }
 function gTile(g){
-  const st=g.st==="generating"?'<span class="status gen">Generating…</span>':g.st==="fixing"?'<span class="status fix">Fixing</span>':g.st==="upscaling"?'<span class="status ok">Upscaling</span>':"";
+  const busy=["generating","fixing","upscaling"].includes(g.st)&&!g.stuck;const st=busy?`<div class="upov"><span class="spin" style="width:30px;height:30px;border-width:3px"></span><b>${g.st==="fixing"?"Fixing…":g.st==="upscaling"?"Upscaling…":"Generating…"}</b><span data-job="${esc(g.jobId||"")}">${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"")}</span></div>`:g.stuck?'<span class="status fix">Didn\'t come back</span>':"";
   let act;
   if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling with Topaz to 1080p, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
+  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
 }
 
 function route(){let h=(location.hash||"#products").slice(1);if(h==="library")h="concepts";return V[h]&&h!=="product"?h:"products"}
