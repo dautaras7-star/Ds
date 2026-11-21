@@ -375,6 +375,11 @@ product(p){
       <textarea id="pnotes" style="min-height:${p.notes?160:90}px" placeholder="Paste here…">${esc(p.notes||"")}</textarea>
       <div class="row" style="margin-top:8px"><button class="btn pri" data-a="savenotes">Save</button><label class="btn">Attach files<input type="file" multiple data-notefiles="1" style="display:none"></label>${(p.noteFiles||[]).map((f,i)=>`<span class="pill">${esc(f.name)} <button data-a="rmnotefile" data-i="${i}" aria-label="Remove ${esc(f.name)}" style="color:var(--bad)">✕</button></span>`).join("")}</div>
     </section>
+    <section class="step panel"><div class="step-h"><h3>Generation rules for this product</h3><span class="note" style="margin-left:auto">${p.playbook?`${p.playbook.length.toLocaleString()} characters saved`:"Empty: uses only the general playbook"}</span></div>
+      <p class="note" style="margin-top:-4px">How videos of this product must be made: what to never say, how the product works and looks, must-have shots. These rules win over the general playbook (Connection page) for this product only.</p>
+      <textarea id="pplaybook" style="min-height:${p.playbook?180:80}px" placeholder="e.g. Never say 'train', it's a truck. The track is one closed loop around the table…">${esc(p.playbook||"")}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn pri" data-a="saveprules">Save rules</button></div>
+    </section>
     <section class="step panel"><div class="step-h"><span class="k ${p.variation?"done":""}">1</span><h3>Variation or new niche</h3></div>
       <p class="note" style="margin-top:-4px">Let Claude brainstorm variations of this product and new niches it could sell in, then pick one. Or write your own.</p>
       ${(()=>{const busy=Object.values(JOBS).some(j=>j.type==="ideas"&&j.pid===p.id)||S.ui.ideasFor===p.id||p._ideasBusy;
@@ -496,7 +501,7 @@ connection(){
       </form>
     </section>
     <section class="panel" style="grid-column:1/-1"><h3>Generation playbook</h3>
-      <p class="note" style="margin-top:-4px">Your proven way of generating videos. Every Generate and Fix job follows this before the app's default rules.</p>
+      <p class="note" style="margin-top:-4px">General rules for <b>all products</b>: your proven way of generating videos. Put rules that only fit one product in that product's "Generation rules for this product" box instead (My products → open the product).</p>
       <ol class="steps-list" style="margin-bottom:10px"><li>Open the Claude chat that generates the videos you like.</li><li>Send it this message:<code class="cmd">Write a complete playbook of exactly how you generate my videos in this chat, so another Claude can repeat it 1:1: which Higgsfield models and settings, how you write the prompts (with the template), which references you attach and how, what you avoid, the steps in order, and the 2-3 prompts that worked best. One message, in markdown.</code></li><li>Paste its answer below and press Save playbook.</li></ol>
       <textarea id="st-playbook" style="min-height:${(s0=>s0&&s0.length>200?260:120)((SETTINGS||{}).playbook)}px" placeholder="Paste the playbook here…">${esc((SETTINGS||{}).playbook||"")}</textarea>
       <div class="row" style="margin-top:8px"><button class="btn pri" data-a="saveplaybook" ${window.studio?"":"disabled"}>Save playbook</button><span class="note">${(SETTINGS||{}).playbook?`${(SETTINGS.playbook.length).toLocaleString()} characters saved`:"Not set yet"}</span></div>
@@ -630,7 +635,7 @@ function productInfo(pr){
   return {name:pr.name,from:pr.from,description:pr.desc||"",niche:pr.niche||"",variation:pr.variation||"",supplier:pr.supplier||"",
     instagram:(pr.social||{}).instagram||"",tiktok:(pr.social||{}).tiktok||"",color:pr.color||"",
     photos:pr.photos||[],logo:(pr.art||{}).logo||"",box:(pr.art||{}).box||"",collage:(pr.art||{}).collage||"",cover:(pr.art||{}).cover||"",
-    refs:refsOf(pr),source_reel:pr.url||"",notes:pr.notes||"",note_files:(pr.noteFiles||[]).map(f=>f.path)};
+    refs:refsOf(pr),source_reel:pr.url||"",notes:pr.notes||"",note_files:(pr.noteFiles||[]).map(f=>f.path),playbook:pr.playbook||""};
 }
 function genModal(){
   const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(!x)return "";
@@ -826,6 +831,7 @@ $("#main").addEventListener("click",e=>{
     case"kitfixno":S.ui.kitFix=null;break;
     case"kitfixgo":{const note=$("#kf").value.trim();if(!note){toast("Write what should change");return}kitRun(p,b.dataset.k,note);break}
     case"ideas":brainstorm(p);break;
+    case"saveprules":p.playbook=$("#pplaybook").value;toast("Rules saved for "+(p.name||p.from));break;
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;break;

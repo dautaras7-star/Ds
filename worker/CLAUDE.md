@@ -17,6 +17,7 @@ Save any downloaded image or video under `media/` and return its path relative t
 Never spend Higgsfield credits beyond `input.maxCredits` when it is given.
 
 ## The user's playbook comes first
+If the job's `product.playbook` is not empty, those are rules for this specific product: follow them above everything else, including `PLAYBOOK.md`.
 `PLAYBOOK.md` in this folder is the user's own proven method for generating videos (models, settings, prompt templates, what to avoid, examples that worked). For `generate` and `fix` jobs, and for anything it covers, read it first and follow it. Where it disagrees with the defaults below, the playbook wins. If it says `(empty...)`, use the defaults.
 
 ## The user's skills
@@ -25,7 +26,7 @@ This folder has the user's own skills in `.claude/skills/`. Use them:
 - `generate`/`fix` with **Seedance**: follow `realistic-ugc-seedance` (realism rules, prompt structure, settings).
 - Remaking a competitor reel: `ugc-video-remake`, `reel-replicator`, `product-video-recast`.
 - `ideas` and `competitors`: `market-research` has the method for customers, pain points and angles.
-Order of authority: `PLAYBOOK.md` first, then these skills, then the defaults in this file. Never ask the user questions mid-job; nobody is there to answer. Decide sensibly and note assumptions in the result.
+Order of authority: the product's own `playbook` first, then `PLAYBOOK.md`, then these skills, then the defaults in this file. Never ask the user questions mid-job; nobody is there to answer. Decide sensibly and note assumptions in the result.
 
 ## Job types
 
