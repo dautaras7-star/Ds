@@ -216,6 +216,8 @@ ol.steps-list li{margin:4px 0}
 .ocgrp{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--panel2)}
 .ocgrp summary{cursor:pointer;font-family:var(--display);font-weight:600}
 .chip input{accent-color:var(--accent2)}
+.upov{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(8,8,14,.62);text-align:center;padding:10px;font-size:12px}
+.upov span:last-child{color:var(--muted);font-size:11px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -315,8 +317,8 @@ const pStep=p=>(p.variation?1:0)+(p.name?1:0)+(kitDone(p)===4?1:0);
 function counts(){
   $("#c-products").textContent=S.finds.length;
   $("#c-my").textContent=S.products.length;
-  $("#c-gen").textContent=S.gens.filter(g=>g.st!=="final").length;
-  $("#c-fin").textContent=S.gens.filter(g=>g.st==="final").length;
+  $("#c-gen").textContent=S.gens.filter(g=>!["final","upscaling"].includes(g.st)).length;
+  $("#c-fin").textContent=S.gens.filter(g=>["final","upscaling"].includes(g.st)).length;
   $("#credits").textContent=S.credits;
 }
 
@@ -456,19 +458,19 @@ concepts(){
   ${section("rev","Reveals",S.reveals)}`;
 },
 generations(){
-  const list=S.gens.filter(g=>g.st!=="final");
+  const list=S.gens.filter(g=>!["final","upscaling"].includes(g.st));
   const groups=S.products.filter(p=>list.some(g=>g.pid===p.id));
   return `<div class="head"><div><h1>Generations</h1><p class="sub">New clips. Approve sends a clip to upscale and then to Finals. Fix keeps it here until you approve it. Drop deletes it.</p></div><span class="example">Example data</span></div>
   ${groups.length?groups.map(p=>`<section class="ggroup"><div class="ggroup-h">${logo(p)}<h2 style="font-size:17px">${esc(p.name)}</h2></div><div class="vids">${list.filter(g=>g.pid===p.id).map(gTile).join("")}</div></section>`).join(""):'<div class="empty">Nothing waiting. Generate videos in Concepts.</div>'}`;
 },
 finals(){
-  const list=S.gens.filter(g=>g.st==="final");
-  const notIn=list.filter(g=>!g.drive).length;
+  const list=S.gens.filter(g=>["final","upscaling"].includes(g.st));
+  const notIn=list.filter(g=>g.st==="final"&&!g.drive).length;
   return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Review once more, then send to Google Drive to edit.</p></div><div class="row"><span class="example">Example data</span>${notIn?`<button class="btn pri" data-a="driveall">Send all to Drive (${notIn})</button>`:""}</div></div>
   <p class="note" style="margin-top:-8px;margin-bottom:16px">Drive: /Viral Studio/&lt;product&gt;/To edit · after editing, drop videos in /Ready to post</p>
-  ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span><div class="p-info"><span>${g.dur} · 1080p</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
+  ${list.length?`<div class="vids">${list.map(g=>{const p=P(g.pid);return `<div class="vid"><div class="player" style="${bg(g)}">${vmedia(g)}<span class="play"></span>${g.st==="upscaling"?`<div class="upov"><span class="spin" style="width:28px;height:28px;border-width:3px"></span><b>Upscaling with Topaz…</b><span>${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"1080p")}</span></div>`:""}<div class="p-info"><span>${g.dur} · ${g.st==="upscaling"?"480p → 1080p":"1080p"}</span><span>${g.engine}</span></div>${g.drive?'<span class="status ok">In Drive</span>':""}</div>
     <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
-    ${g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
+    ${g.st==="upscaling"?(g.stuck?`<div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button></div>`:'<div class="note">Send to Drive unlocks when the upscale is done.</div>'):g.drive?'<button class="btn" disabled>Sent to Drive</button>':`<div class="row fill"><button class="btn" data-a="unfinal" data-id="${g.id}">Back</button><button class="btn pri" data-a="drive" data-id="${g.id}">Send to Drive</button></div>`}</div>`}).join("")}</div>`:'<div class="empty">No finals yet.</div>'}`;
 },
 library(){
   const t=S.ui.libTab,list=t==="hooks"?S.hooks:S.reveals,kind=t==="hooks"?"hook":"rev";
@@ -583,8 +585,8 @@ const LIVE={
     g.started=Date.now();g.stuck=false;const hx=S.hooks.find(h=>h.name===g.hook),rx=S.reveals.find(h=>h.name===g.reveal);
     g.jobId=runJob("fix",`Fix · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:"",clip:hx?hx.clip||"":""}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:"",clip:rx?rx.clip||"":""}:null,changes:g.changes||{},previous_job_id:g.job_id||"",engine:g.engine,source:pr.url||"",note,previous_prompt:g.prompt||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});S.credits+=r.credits||0}else g.st="ready"})},
-  approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";
-    g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.drive=false}else g.st="ready"})},
+  approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling with Topaz");
+    g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.drive=false;toast("Upscaled · in Finals")}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
   drive(b,id){const g=S.gens.find(x=>x.id===id),pr=P(g.pid);runJob("drive",`Drive · ${g.hook}`,{video:g.video,product:pr?pr.name:"",name:`${g.hook} + ${g.reveal}`},r=>{if(r.ok){g.drive=true;g.drive_url=r.drive_url}})},
   driveall(){S.gens.filter(g=>g.st==="final"&&!g.drive).forEach(g=>LIVE.drive(null,g.id))}
 };
@@ -868,7 +870,7 @@ $("#main").addEventListener("click",e=>{
     case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
     case"dropno":S.ui.dropAsk=null;break;
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
-    case"approve":gen.st="upscaling";toast("Upscaling with Topaz · 1080p");later(2500,()=>{gen.st="final";gen.drive=false});break;
+    case"approve":gen.st="upscaling";toast("Moved to Finals · upscaling with Topaz");later(2500,()=>{gen.st="final";gen.drive=false});break;
     case"unfinal":gen.st="ready";break;
     case"drive":gen.drive=true;toast("Sent to Google Drive");break;
     case"driveall":S.gens.filter(g=>g.st==="final").forEach(g=>g.drive=true);toast("All sent to Google Drive");break;
