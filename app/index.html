@@ -221,6 +221,8 @@ ol.steps-list li{margin:4px 0}
 .selbox{position:absolute;top:8px;left:8px;z-index:3;background:rgba(0,0,0,.6);border-radius:6px;padding:3px 5px;cursor:pointer}
 .selbox input{width:18px;height:18px;accent-color:var(--accent2);cursor:pointer}
 .vid.selon .player{outline:2px solid var(--accent2);outline-offset:2px}
+.chip.sm{padding:3px 10px;font-size:12px}
+.sugg{gap:6px}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -676,16 +678,16 @@ function productInfo(pr){
 function genModal(){
   const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(!x)return "";
   const pr=P(S.concept.pid),isHook=S.ui.genKind==="hook",eng=S.ui.genEngine||"Seedance";
-  const q=(id,label,ph,area)=>`<label class="f">${label}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</label>`;
+  const SG=suggFor(pr);const q=(id,label,ph,area,key)=>`<div class="f"><label class="f" for="${id}">${label}</label>${chips(id,SG[key])}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</div>`;
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="Generate ${esc(x.name)}"><div class="modal-box">
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Generate this ${isHook?"hook":"reveal"}${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">${esc(x.name)}</h2></div><button class="btn" data-a="gencancel" aria-label="Close">✕</button></div>
-    <p class="note">Leave a question empty to keep that part the same as the original ${isHook?"hook":"reveal"}.</p>
+    <div class="row" style="justify-content:space-between"><p class="note" style="margin:0">Click an option or type your own. Leave a question empty to keep it like the original ${isHook?"hook":"reveal"}.</p>${suggBar(pr,x)}</div>
     <div class="form">
       <div><div class="note" style="margin-bottom:6px">Engine</div><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="geneng" data-v="Seedance">Seedance · build from scratch</button><button aria-pressed="${eng==="Genjutsu"}" data-a="geneng" data-v="Genjutsu">Genjutsu · swap into the clip</button></div></div>
-      <div class="two">${q("gq-people","People: who should be in it?","e.g. young dad, 30s, beard, grey hoodie")}${q("gq-bg","Background / location","e.g. Walmart toy aisle, cozy living room")}</div>
-      ${q("gq-script","Script: what do they say?","e.g. Wife whispers: \"Don't tell my husband…\" then he finds the box",true)}
-      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked")}<label class="f">Length (seconds)<input type="text" id="gq-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label></div>
-      ${q("gq-other","Anything else to change?","e.g. product in close-up at second 2, night time",true)}
+      <div class="two">${q("gq-people","People: who should be in it?","e.g. young dad, 30s, beard, grey hoodie",false,"people")}${q("gq-bg","Background / location","e.g. Walmart toy aisle, cozy living room",false,"background")}</div>
+      ${q("gq-script","Script: what do they say?","e.g. Wife whispers: \"Don't tell my husband…\" then he finds the box",true,"script")}
+      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked",false,"mood")}<label class="f">Length (seconds)${chips("gq-len",["5s","6s","8s","10s","15s"])}<input type="text" id="gq-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label></div>
+      ${q("gq-other","Anything else to change?","e.g. product in close-up at second 2, night time",true,"other")}
       ${pr?"":`<p style="color:var(--bad)">Pick a product with a finished brand kit at the top of Concepts first.</p>`}
       <div class="row" style="justify-content:flex-end"><button class="btn" data-a="gencancel">Cancel</button><button class="btn pri big" data-a="gengo" ${pr?"":"disabled"}>Generate</button></div>
     </div></div></div>`;
@@ -699,7 +701,7 @@ function ownClipModal(){
   const grp=(title,inner,open)=>`<details class="ocgrp" ${open?"open":""}><summary>${title}</summary><div class="form" style="margin-top:10px">${inner}</div></details>`;
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="Write my own clip"><div class="modal-box" style="width:min(860px,100%)">
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Write my own clip${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">Describe it, Claude makes it</h2></div><button class="btn" data-a="ownclipclose" aria-label="Close">✕</button></div>
-    <p class="note">Only the description is required. Everything else is optional: leave it and Claude decides, following your playbook and product rules.</p>
+    <div class="row" style="justify-content:space-between"><p class="note" style="margin:0">Only the description is required. Click options or type your own; anything empty, Claude decides.</p>${suggBar(pr,null)}</div>
     ${grp("Basics",`<div class="two">${txt("oc-name","Clip name","e.g. Grandpa finds the truck")}${sel("oc-type","Type",["Hook","Reveal","Full video"],"Hook")}</div>
       ${area("oc-desc","What happens? *","Describe the clip in your own words: who, where, what they do, what we see")}
       <div class="two">${sel("oc-engine","Engine",["Seedance","Genjutsu"],"Seedance")}${sel("oc-count","How many versions",["1","2","3","4"],"1")}</div>
@@ -707,16 +709,16 @@ function ownClipModal(){
     ${grp("Length & structure",`<div class="two"><label class="f">Total length (seconds)<input type="text" id="oc-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label>${sel("oc-shots","Number of shots",["Claude decides","1 (one take)","2","3","4","5","6+"],"Claude decides")}</div>
       <div class="two">${sel("oc-pace","Pace",["Claude decides","Slow","Normal","Fast cuts"],"Claude decides")}${txt("oc-first","First 1–2 seconds (the hook moment)","e.g. box falls off the shelf")}</div>
       ${txt("oc-end","Ending / payoff","e.g. dad laughs and pours shots for everyone")}`)}
-    ${grp("People",`<div class="two">${sel("oc-ppl","How many people",["Claude decides","None","1","2","3","4+","Family"],"Claude decides")}${txt("oc-who","Who (age, gender, look)","e.g. man 50s, grey beard; wife 40s")}</div>
+    ${grp("People",`<div class="two">${sel("oc-ppl","How many people",["Claude decides","None","1","2","3","4+","Family"],"Claude decides")}<div>${chips("oc-who",suggFor(pr).people)}${txt("oc-who","Who (age, gender, look)","e.g. man 50s, grey beard; wife 40s")}</div></div>
       <div class="two">${txt("oc-wear","Clothes","e.g. flannel shirt, jeans")}${txt("oc-pets","Pets","e.g. golden retriever, or none")}</div>
       <label class="check"><input type="checkbox" id="oc-hands">Hands only, no faces</label>`)}
-    ${grp("Setting",`<div class="two">${txt("oc-loc","Location","e.g. garage bar, kitchen island, Walmart aisle")}${sel("oc-io","Indoor or outdoor",["Claude decides","Indoor","Outdoor"],"Claude decides")}</div>
+    ${grp("Setting",`<div class="two"><div>${chips("oc-loc",suggFor(pr).background)}${txt("oc-loc","Location","e.g. garage bar, kitchen island, Walmart aisle")}</div>${sel("oc-io","Indoor or outdoor",["Claude decides","Indoor","Outdoor"],"Claude decides")}</div>
       <div class="two">${sel("oc-time","Time of day",["Claude decides","Morning","Day","Golden hour","Evening","Night"],"Claude decides")}${sel("oc-light","Lighting",["Neutral white 5000K (default)","Natural window light","Bright daylight","Moody / dim","Party lights"],"Neutral white 5000K (default)")}</div>
       ${txt("oc-season","Season / weather","e.g. Christmas, snowy outside")}`)}
     ${grp("Camera",`<div class="two">${sel("oc-style","Style",["Handheld phone UGC","Tripod / static","Selfie","First-person POV","Over the shoulder","Top-down"],"Handheld phone UGC")}${sel("oc-move","Movement",["Claude decides","Static","Handheld shake","Slow pan","Push-in","Follow the action"],"Claude decides")}</div>
       <div><div class="note" style="margin-bottom:6px">Angles to include</div><div class="opts">${OC_ANGLES.map((a,i)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" class="oc-angle" value="${a}" style="margin-right:6px">${a}</label>`).join("")}</div></div>`)}
     ${grp("Sound & dialogue",`<div class="two">${sel("oc-dlg","Dialogue",["Claude decides","None","One line","Conversation"],"Claude decides")}${sel("oc-accent","Accent",["American","British","Australian","Other / any"],"American")}</div>
-      ${area("oc-script","Script (exact words)","e.g. Wife: \"Don't tell my husband…\"")}
+      <div>${chips("oc-script",suggFor(pr).script)}${area("oc-script","Script (exact words)","e.g. Wife: \"Don't tell my husband…\"")}</div>
       <div class="two">${sel("oc-vo","Voiceover narrator",["No","Yes"],"No")}${sel("oc-music","Music",["None (default)","Light background music"],"None (default)")}</div>
       ${txt("oc-sfx","Sound effects","e.g. bottles clinking, box tearing, engine sound")}`)}
     ${grp("Product",`<div class="two">${txt("oc-when","Product first appears at (second)","e.g. 2")}${sel("oc-how","How it's shown",["Claude decides","In hand","Unboxing","In use","On a shelf","On a table"],"Claude decides")}</div>
@@ -757,6 +759,20 @@ function relinkModal(){
     ${rest.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;font-size:13px;gap:10px"><span class="dot ${r.path?"":"bad"}"></span><span style="min-width:0;flex:1;overflow-wrap:anywhere">${esc(r.name)}${r.err?` <span style="color:var(--bad)">(couldn't save: ${esc(r.err)})</span>`:""}</span>${r.path?`<select data-relinkpick="${i}" style="max-width:280px"><option value="">Pick ${kind==="hook"?"hook":"reveal"}…</option>${free.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>`:""}</div>`).join("")}
     <div class="row" style="justify-content:flex-end"><button class="btn pri" data-a="relinkclose">Done</button></div>
   </div></div>`;
+}
+const SUGG_DEFAULT={people:["Mom with kids","Dad with kids","Young couple","Grandparents","Friends at a party","Hands only"],background:["Living room","Kitchen","Kids' bedroom","Garage","Backyard","Store aisle"],script:["No dialogue","\"Wait… what is this?\"","\"Best gift ever!\"","\"You need this\""],mood:["Funny","Shocked, then happy","Wholesome","Satisfying","Exciting"],other:["Product close-up at second 2","Night time","Christmas decor","Slow motion reveal"]};
+function suggFor(pr){const s0=pr&&pr.sugg;if(!s0)return SUGG_DEFAULT;const out={};for(const k in SUGG_DEFAULT)out[k]=(s0[k]&&s0[k].length?s0[k]:SUGG_DEFAULT[k]);return out}
+function chips(id,list){return `<div class="opts sugg" style="margin:2px 0 6px">${(list||[]).map(o=>`<button type="button" class="chip sm" data-a="sugg" data-for="${id}" data-v="${esc(o)}">${esc(o)}</button>`).join("")}<button type="button" class="chip sm" data-a="suggother" data-for="${id}">Other…</button></div>`}
+function suggBar(pr,x){
+  if(!pr)return "";
+  const busy=Object.values(JOBS).some(j=>j.type==="suggest"&&j.pid===pr.id);
+  return busy?`<span class="scrolling" style="font-size:12px"><span class="spin"></span>Claude is writing options for ${esc(pr.name)}…</span>`:`<button type="button" class="btn" data-a="suggmore" style="padding:4px 10px;font-size:12px">${pr.sugg?"More options":"Get options for "+esc(pr.name)}</button>`;
+}
+function askSugg(pr,x){
+  if(!pr||MODE!=="live"||!window.studio)return;
+  if(Object.values(JOBS).some(j=>j.type==="suggest"&&j.pid===pr.id))return;
+  const id=runJob("suggest","Options · "+pr.name,{product:productInfo(pr),clip:x?{name:x.name,desc:x.desc}:null,known:pr.sugg||null},r=>{if(r.ok){const old=pr.sugg||{};pr.sugg={};for(const k in SUGG_DEFAULT){pr.sugg[k]=[...new Set([...(r[k]||[]),...(old[k]||[])])].slice(0,10)}}});
+  JOBS[id].pid=pr.id;
 }
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
@@ -873,7 +889,9 @@ function render(){
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
+  const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
   $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"");counts();save();jobsUI();
+  for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
@@ -938,7 +956,7 @@ $("#main").addEventListener("click",e=>{
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"ask":S.ui.delAsk=id;break;
     case"nodel":S.ui.delAsk=null;break;
-    case"genask":S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";break;
+    case"genask":{S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(pr&&!pr.sugg)askSugg(pr,x);break}
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
     case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim()});S.ui.genFor=null;break}
     case"gencancel":S.ui.genFor=null;break;
@@ -956,8 +974,11 @@ $("#main").addEventListener("click",e=>{
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;break;
+    case"sugg":{const el=$("#"+b.dataset.for);if(el){el.value=b.dataset.v;el.dispatchEvent(new Event("input"))}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
+    case"suggother":{const el=$("#"+b.dataset.for);if(el){el.value="";el.focus()}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
+    case"suggmore":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(MODE!=="live"){toast("Options come from Claude in Live mode");return}askSugg(pr,x);break}
     case"relinkclose":S.ui.relinkOpen=false;PENDING_CLIPS=[];toast("Clips attached");break;
-    case"ownclip":S.ui.ownClip=true;break;
+    case"ownclip":{S.ui.ownClip=true;const pr=P(S.concept.pid);if(pr&&!pr.sugg)askSugg(pr,null);break}
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
     case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;for(let i=0;i<r.spec.versions;i++)genOne(r.x,r.kind,r.spec.engine,{});render()});return;

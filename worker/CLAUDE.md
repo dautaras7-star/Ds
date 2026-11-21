@@ -75,6 +75,11 @@ If `own` is not empty, check only those. Otherwise come up with `count` short, r
 Check each on both platforms with Claude in Chrome (same method as `handles`). `available` is true, false, or null if it couldn't be checked.
 Result: `{"ok":true,"instagram":[{"handle","available"}],"tiktok":[{"handle","available"}]}`
 
+### `suggest`: ready-made answers for the Generate window
+Input: `product` (full product info incl. notes and playbook), `clip` (the hook/reveal being generated, may be null), `known` (options already shown; give new ones).
+Write short, concrete, clickable options tailored to this product's real buyers and niche (not generic): who is in the video, where it happens, what they say, the mood, and other useful tweaks. Respect the product's rules (e.g. words to never say).
+Result: `{"ok":true,"people":[6 options],"background":[6],"script":[5 short lines or "No dialogue"],"mood":[5],"other":[5]}`. Each option under ~60 characters.
+
 ### `brandkit`: one brand asset with Higgsfield
 Input: `asset` (`logo` | `collage` | `box` | `cover`), `name`, `product`, `niche`, `description`, `variation`, `color`, `refs` (product photo paths/URLs, may include the user's own photos; use them as references), `note` and `previous` (when set, this is a fix: start from `previous` and change only what `note` asks).
 - `logo`: square logo mark for social profiles, simple, readable at small size.
