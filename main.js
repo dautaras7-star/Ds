@@ -72,6 +72,13 @@ function resolveClaude() {
   return cmd;
 }
 
+function killTree(child) {
+  if (!child || child.exitCode !== null) return;
+  try {
+    if (process.platform === 'win32' && child.pid) spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+    else child.kill();
+  } catch (_) { try { child.kill(); } catch (__) {} }
+}
 function withFfmpeg(env) {
   const bin = ffmpegPath(); if (!bin) return { ...env };
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
@@ -405,7 +412,7 @@ ipcMain.handle('job:start', (e, job) => {
   });
   running.set(id, child);
   const limit = job.input && +job.input.maxMinutes;
-  if (limit > 0) setTimeout(() => { if (running.get(id) === child) { log(`job ${id} time limit`); try { child.kill(); } catch (_) {} } }, (limit + 3) * 60000);
+  if (limit > 0) setTimeout(() => { if (running.get(id) === child) { log(`job ${id} time limit`); killTree(child); } }, (limit + 3) * 60000);
   child.on('error', (err) => {
     running.delete(id);
     log(`job ${id} spawn error ${err}`);
@@ -437,7 +444,7 @@ ipcMain.handle('job:result', (_e, id) => {
 ipcMain.handle('job:running', () => [...running.keys()]);
 ipcMain.handle('job:cancel', (_e, id) => {
   const c = running.get(id);
-  if (c) { try { c.kill(); } catch (_) {} }
+  if (c) killTree(c);
   return true;
 });
 
@@ -477,6 +484,6 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   }).catch((err) => log('whenReady failed: ' + err));
-  app.on('before-quit', () => { for (const c of running.values()) { try { c.kill(); } catch (_) {} } });
+  app.on('before-quit', () => { for (const c of running.values()) killTree(c); });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }
