@@ -245,6 +245,7 @@ ol.steps-list li{margin:4px 0}
   <main id="main"></main>
 </div>
 <div class="toast" id="toast" hidden></div>
+<datalist id="lenlist"><option value="3s"><option value="5s"><option value="6s"><option value="8s"><option value="10s"><option value="12s"><option value="15s"><option value="20s"><option value="30s"></datalist>
 
 <script>
 const IMG={v1:"img/v1.jpg",v2:"img/v2.jpg",v3:"img/v3.jpg",v4:"img/v4.jpg"};
@@ -438,7 +439,7 @@ concepts(){
     const word=kind==="hook"?"hook":"reveal",finding=Object.values(JOBS).some(j=>j.type==="findclips"&&j.kind===kind);
     return `<section class="cstep panel">
       <div class="row" style="justify-content:space-between;margin-bottom:12px"><h2 style="margin:0">${title} <span class="note">${list.length}</span></h2>
-        <div class="row">${finding||S.ui.finding===kind?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Finding viral ${word}s…</span>`:`<button class="btn cy" data-a="findclips" data-v="${kind}">Find viral ${word}s</button>`}<button class="btn" data-a="addc" data-v="${kind}">Add ${word}</button></div></div>
+        <div class="row">${finding||S.ui.finding===kind?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Finding viral ${word}s…</span>`:`<button class="btn cy" data-a="findclips" data-v="${kind}">Find viral ${word}s</button>`}<button class="btn" data-a="addc" data-v="${kind}">Add ${word}</button>${list.some(x=>x.clipName&&!x.clip)?`<label class="btn pri">Re-attach clips<input type="file" accept="video/*" multiple data-relink="${kind}" style="display:none"></label>`:""}</div></div>
       ${S.ui.addKind===kind?`<form class="addform" id="addform2" data-kind="${kind}" style="background:var(--panel2);padding:12px;border-radius:12px">
         <label class="f">Name<input type="text" id="a2n" required placeholder="${kind==="hook"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label>
         <label class="f">Best product types<input type="text" id="a2f" placeholder="e.g. Gadgets, toys"></label>
@@ -531,7 +532,7 @@ function libCard(x,kind,mode){
   const csrc=CLIPS[x.id]||(x.clip?media(x.clip):"");const mediaEl=csrc?`<video src="${esc(csrc)}" muted loop autoplay playsinline preload="auto" disablepictureinpicture></video>`:"";
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:110px 1fr">
-    <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<span class="note" style="position:absolute;inset:auto 0 8px;text-align:center;z-index:1;font-size:10px">No clip</span>`}</div>
+    <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<label style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:2;cursor:pointer;font-size:11px;color:var(--muted);padding:8px">${x.clipName?"Clip missing.<br>Click to add":"No clip.<br>Click to add"}<input type="file" accept="video/*" data-up="${x.id}" style="display:none"></label>`}</div>
     <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">${x.own?`<span class="pill pk">${x.full?"My full video":"My own clip"}</span>`:`Fits: ${esc(x.fits)}`}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
       ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}
       <div class="tools">${mode==="pick"?`<button class="btn cy" data-a="genask" data-id="${x.id}" data-k="${kind}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
@@ -651,7 +652,7 @@ function genModal(){
       <div><div class="note" style="margin-bottom:6px">Engine</div><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="geneng" data-v="Seedance">Seedance · build from scratch</button><button aria-pressed="${eng==="Genjutsu"}" data-a="geneng" data-v="Genjutsu">Genjutsu · swap into the clip</button></div></div>
       <div class="two">${q("gq-people","People: who should be in it?","e.g. young dad, 30s, beard, grey hoodie")}${q("gq-bg","Background / location","e.g. Walmart toy aisle, cozy living room")}</div>
       ${q("gq-script","Script: what do they say?","e.g. Wife whispers: \"Don't tell my husband…\" then he finds the box",true)}
-      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked")}<label class="f">Length<select id="gq-len"><option value="">Claude decides</option><option>5</option><option>8</option><option>10</option><option>15</option></select></label></div>
+      <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked")}<label class="f">Length (seconds)<input type="text" id="gq-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label></div>
       ${q("gq-other","Anything else to change?","e.g. product in close-up at second 2, night time",true)}
       ${pr?"":`<p style="color:var(--bad)">Pick a product with a finished brand kit at the top of Concepts first.</p>`}
       <div class="row" style="justify-content:flex-end"><button class="btn" data-a="gencancel">Cancel</button><button class="btn pri big" data-a="gengo" ${pr?"":"disabled"}>Generate</button></div>
@@ -671,7 +672,7 @@ function ownClipModal(){
       ${area("oc-desc","What happens? *","Describe the clip in your own words: who, where, what they do, what we see")}
       <div class="two">${sel("oc-engine","Engine",["Seedance","Genjutsu"],"Seedance")}${sel("oc-count","How many versions",["1","2","3","4"],"1")}</div>
       <label class="f">Source clip for Genjutsu (optional)<input type="file" id="oc-src" accept="video/*"></label>`,true)}
-    ${grp("Length & structure",`<div class="two">${sel("oc-len","Total length (seconds)",["Claude decides","3","5","8","10","12","15","20","30"],"Claude decides")}${sel("oc-shots","Number of shots",["Claude decides","1 (one take)","2","3","4","5","6+"],"Claude decides")}</div>
+    ${grp("Length & structure",`<div class="two"><label class="f">Total length (seconds)<input type="text" id="oc-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label>${sel("oc-shots","Number of shots",["Claude decides","1 (one take)","2","3","4","5","6+"],"Claude decides")}</div>
       <div class="two">${sel("oc-pace","Pace",["Claude decides","Slow","Normal","Fast cuts"],"Claude decides")}${txt("oc-first","First 1–2 seconds (the hook moment)","e.g. box falls off the shelf")}</div>
       ${txt("oc-end","Ending / payoff","e.g. dad laughs and pours shots for everyone")}`)}
     ${grp("People",`<div class="two">${sel("oc-ppl","How many people",["Claude decides","None","1","2","3","4+","Family"],"Claude decides")}${txt("oc-who","Who (age, gender, look)","e.g. man 50s, grey beard; wife 40s")}</div>
@@ -698,7 +699,7 @@ async function readOwnClip(){
   const desc=v("oc-desc");if(!desc){toast("Describe what happens first");return null}
   const keep=x=>x&&x!=="Claude decides"?x:"";
   const spec={type:v("oc-type"),description:desc,engine:v("oc-engine"),versions:+v("oc-count")||1,
-    length:keep(v("oc-len")),shots:keep(v("oc-shots")),pace:keep(v("oc-pace")),first_seconds:v("oc-first"),ending:v("oc-end"),
+    length:secs(v("oc-len")),shots:keep(v("oc-shots")),pace:keep(v("oc-pace")),first_seconds:v("oc-first"),ending:v("oc-end"),
     people:keep(v("oc-ppl")),who:v("oc-who"),clothes:v("oc-wear"),pets:v("oc-pets"),hands_only:c("oc-hands"),
     location:v("oc-loc"),indoor_outdoor:keep(v("oc-io")),time_of_day:keep(v("oc-time")),lighting:v("oc-light"),season:v("oc-season"),
     camera_style:v("oc-style"),movement:keep(v("oc-move")),angles:[...document.querySelectorAll(".oc-angle:checked")].map(x=>x.value),
@@ -711,6 +712,7 @@ async function readOwnClip(){
   (kind==="hook"?S.hooks:S.reveals).unshift(x);
   return {x,kind,spec};
 }
+function secs(t){const n=parseFloat(String(t||"").replace(",","."));return n>0?Math.round(n)+"s":""}
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
   if(!pr){toast("Finish a product's brand kit first, then pick it at the top");return}
@@ -876,7 +878,7 @@ $("#main").addEventListener("click",e=>{
     case"nodel":S.ui.delAsk=null;break;
     case"genask":S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";break;
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
-    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:v("gq-len"),other:v("gq-other").trim()});S.ui.genFor=null;break}
+    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim()});S.ui.genFor=null;break}
     case"gencancel":S.ui.genFor=null;break;
     
     case"findclips":findClips(b.dataset.v);break;
@@ -918,6 +920,9 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.relink&&t.files&&t.files.length){const list=t.dataset.relink==="hook"?S.hooks:S.reveals;let n=0;const miss=[];
+    for(const f of [...t.files]){const x=list.find(i=>i.clipName===f.name&&!i.clip);if(!x){miss.push(f.name);continue}try{const fp=await saveFile(f);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;n++}catch(err){miss.push(f.name)}}
+    toast(`Attached ${n} clip${n===1?"":"s"}${miss.length?` · no match for ${miss.length}`:""}`);render();return}
   if(t.dataset&&t.dataset.notefiles&&t.files&&t.files.length){const p=P(S.ui.prod);p.noteFiles=p.noteFiles||[];for(const f of [...t.files]){try{p.noteFiles.push({name:f.name,path:await saveFile(f)})}catch(err){toast("Couldn't save "+f.name)}}toast("Files attached");render();return}
   if(t.dataset&&t.dataset.addphotos&&t.files&&t.files.length){const p=P(S.ui.prod);p.photos=p.photos||[];for(const f of [...t.files]){try{p.photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}if(!p.img&&p.photos[0])p.img=media(p.photos[0]);toast("Photos added");render();return}
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
