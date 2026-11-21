@@ -293,7 +293,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,addProd:false,kitFix:null,ideasFor:null,unFor:null,finSel:[],finDel:null,finBulkDel:false}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,relinkOpen:false,relinkKind:null,addProd:false,kitFix:null,ideasFor:null,unFor:null,finSel:[],finDel:null,finBulkDel:false}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -745,6 +745,19 @@ async function readOwnClip(){
   return {x,kind,spec};
 }
 function secs(t){const n=parseFloat(String(t||"").replace(",","."));return n>0?Math.round(n)+"s":""}
+let PENDING_CLIPS=[];
+function relinkModal(){
+  const kind=S.ui.relinkKind,list=kind==="hook"?S.hooks:S.reveals;
+  const free=list.filter(x=>!x.clip&&!CLIPS[x.id]);
+  const ok=PENDING_CLIPS.filter(r=>r.ok),rest=PENDING_CLIPS.filter(r=>!r.ok);
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="Re-attach clips"><div class="modal-box">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><h2 style="font-size:19px">Re-attach clips</h2><button class="btn" data-a="relinkclose" aria-label="Close">✕</button></div>
+    <p class="note">${ok.length} matched automatically${rest.length?`, ${rest.length} need you to pick the ${kind==="hook"?"hook":"reveal"}`:""}.</p>
+    ${ok.map(r=>`<div class="row" style="flex-wrap:nowrap;font-size:13px"><span class="dot ok"></span><span style="min-width:0;overflow-wrap:anywhere">${esc(r.name)} → <b>${esc(r.hook)}</b></span></div>`).join("")}
+    ${rest.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;font-size:13px;gap:10px"><span class="dot ${r.path?"":"bad"}"></span><span style="min-width:0;flex:1;overflow-wrap:anywhere">${esc(r.name)}${r.err?` <span style="color:var(--bad)">(couldn't save: ${esc(r.err)})</span>`:""}</span>${r.path?`<select data-relinkpick="${i}" style="max-width:280px"><option value="">Pick ${kind==="hook"?"hook":"reveal"}…</option>${free.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>`:""}</div>`).join("")}
+    <div class="row" style="justify-content:flex-end"><button class="btn pri" data-a="relinkclose">Done</button></div>
+  </div></div>`;
+}
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
   if(!pr){toast("Finish a product's brand kit first, then pick it at the top");return}
@@ -860,7 +873,7 @@ function render(){
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
-  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"");counts();save();jobsUI();
+  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"");counts();save();jobsUI();
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
@@ -943,6 +956,7 @@ $("#main").addEventListener("click",e=>{
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;break;
+    case"relinkclose":S.ui.relinkOpen=false;PENDING_CLIPS=[];toast("Clips attached");break;
     case"ownclip":S.ui.ownClip=true;break;
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
@@ -969,10 +983,19 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
   if(t.dataset&&t.dataset.finsel){const id=t.dataset.finsel;S.ui.finSel=S.ui.finSel||[];S.ui.finSel=t.checked?[...S.ui.finSel,id]:S.ui.finSel.filter(x=>x!==id);render();return}
-  if(t.dataset&&t.dataset.relink&&t.files&&t.files.length){const list=t.dataset.relink==="hook"?S.hooks:S.reveals;let n=0;const miss=[];
-    for(const f of [...t.files]){const x=list.find(i=>i.clipName===f.name&&!i.clip);if(!x){miss.push(f.name);continue}try{const fp=await saveFile(f);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;n++}catch(err){miss.push(f.name)}}
-    toast(`Attached ${n} clip${n===1?"":"s"}${miss.length?` · no match for ${miss.length}`:""}`);render();return}
+  if(t.dataset&&t.dataset.relink&&t.files&&t.files.length){
+    const kind=t.dataset.relink,list=kind==="hook"?S.hooks:S.reveals,files=[...t.files];
+    const fk=n=>String(n||"").toLowerCase().replace(/\.[a-z0-9]+$/,"").replace(/[\s_\-()]/g,"");
+    const rows=[];const used=new Set();
+    for(const f of files){const x=list.find(i=>!used.has(i.id)&&!i.clip&&!CLIPS[i.id]&&i.clipName&&fk(i.clipName)===fk(f.name));if(x)used.add(x.id);rows.push({f,x})}
+    toast("Saving clips…");
+    PENDING_CLIPS=[];
+    for(const r of rows){let fp="";try{fp=await saveFile(r.f)}catch(err){r.err=String(err.message||err)}
+      if(r.x&&fp){if(/^blob:/.test(fp))CLIPS[r.x.id]=fp;else r.x.clip=fp;r.ok=true}
+      PENDING_CLIPS.push({name:r.f.name,path:fp,hook:r.x?r.x.name:"",ok:!!r.ok,err:r.err||""})}
+    S.ui.relinkKind=kind;S.ui.relinkOpen=true;render();return}
   if(t.dataset&&t.dataset.notefiles&&t.files&&t.files.length){const p=P(S.ui.prod);p.noteFiles=p.noteFiles||[];for(const f of [...t.files]){try{p.noteFiles.push({name:f.name,path:await saveFile(f)})}catch(err){toast("Couldn't save "+f.name)}}toast("Files attached");render();return}
   if(t.dataset&&t.dataset.addphotos&&t.files&&t.files.length){const p=P(S.ui.prod);p.photos=p.photos||[];for(const f of [...t.files]){try{p.photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}if(!p.img&&p.photos[0])p.img=media(p.photos[0]);toast("Photos added");render();return}
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
@@ -989,6 +1012,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id&&t.id.startsWith("cr-"))save();
 });
 $("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+document.addEventListener("error",e=>{const v=e.target;if(!v||v.tagName!=="VIDEO"||!v.closest(".lcard"))return;const pl=v.parentNode;if(pl.querySelector(".playerr"))return;pl.insertAdjacentHTML("beforeend",'<span class="note playerr" style="position:absolute;inset:auto 4px 6px;text-align:center;z-index:3;font-size:10px;color:var(--bad)">Can\'t play this file</span>')},true);
 boot();
 </script>
 </body>
