@@ -295,7 +295,7 @@ function seed(){return{
     {id:"g6",pid:"p2",hook:"Concept vs product",reveal:"In-product POV",engine:"Seedance",dur:"0:15",cr:72,bg:IMG.v1,st:"final",drive:true}
   ],
   concept:{pid:"p1",hooks:[],reveals:[],engines:{}},
-  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,relinkOpen:false,relinkKind:null,addProd:false,kitFix:null,ideasFor:null,unFor:null,finSel:[],finDel:null,finBulkDel:false}
+  ui:{fixOpen:null,dropAsk:null,libTab:"hooks",prod:null,scrolling:false,addOpen:false,editing:null,addKind:null,genFor:null,finding:null,relinkOpen:false,relinkKind:null,addProd:false,kitFix:null,ideasFor:null,unFor:null,gpBusy:false,finSel:[],finDel:null,finBulkDel:false}
 }}
 let MODE=(()=>{if(!window.studio)return "example";try{if(!localStorage.getItem("vs-live-default")){localStorage.setItem("vs-live-default","1");localStorage.setItem("vs-mode","live")}return localStorage.getItem("vs-mode")||"live"}catch(e){return "live"}})();
 const KEY=()=>MODE==="live"?"vs-live":"vs3";
@@ -303,7 +303,7 @@ function seedLive(){const s=seed();s.finds=[];s.products=[];s.gens=[];s.credits=
 function load(){let s=MODE==="live"?seedLive():seed();try{const x=JSON.parse(localStorage.getItem(KEY())||"null");if(x&&x.v===3){s=x.s;s.ui={...seed().ui}}}catch(e){}return s}
 let S=load();
 const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify({v:3,s:S}))}catch(e){}};
-let SETTINGS=null,WS="",CC={checked:false,ok:false,version:""};
+let SETTINGS=null,WS="",CC={checked:false,ok:false,version:""},GP={hasClient:false,connected:false};
 const JOBS={};
 const media=pth=>!pth?"":/^(https?:|file:|blob:|data:|img\/)/.test(pth)?pth:"file:///"+(WS.replace(/\\/g,"/")+"/"+pth).replace(/^\/+/,"");
 const vmedia=o=>o.video?`<video src="${esc(media(o.video))}" muted loop playsinline controls preload="metadata"></video>`:"";
@@ -534,11 +534,20 @@ connection(){
       <textarea id="st-playbook" style="min-height:${(s0=>s0&&s0.length>200?260:120)((SETTINGS||{}).playbook)}px" placeholder="Paste the playbook here…">${esc((SETTINGS||{}).playbook||"")}</textarea>
       <div class="row" style="margin-top:8px"><button class="btn pri" data-a="saveplaybook" ${window.studio?"":"disabled"}>Save playbook</button><span class="note">${(SETTINGS||{}).playbook?`${(SETTINGS.playbook.length).toLocaleString()} characters saved`:"Not set yet"}</span></div>
     </section>
-    <section class="panel"><h3>Finals folder → Google Photos</h3>
-      <p class="note" style="margin-top:-4px">Send saves finished videos here, in a folder per product.</p>
-      <code class="cmd" id="expdir">${esc(S.ui.expDir||"…")}</code>
-      <div class="row"><button class="btn" data-a="pickexport" ${window.studio?"":"disabled"}>Change folder</button><button class="btn" data-a="openexport2" ${window.studio?"":"disabled"}>Open folder</button></div>
-      <ol class="steps-list" style="margin-top:10px"><li>Install <b>Google Drive for desktop</b> (google.com/drive/download) and sign in with your Google account.</li><li>Open its settings → <b>My Computer</b> → <b>Add folder</b> → pick the folder above.</li><li>Tick <b>Back up to Google Photos</b> → Save.</li><li>Every video you Send now uploads to Google Photos by itself.</li></ol>
+    <section class="panel" style="grid-column:1/-1"><h3><span class="dot ${GP.connected?"ok":GP.hasClient?"":"bad"}"></span>Google Photos</h3>
+      ${GP.connected?`<p>Connected. <b>Send to Photos</b> uploads straight to your Google Photos, in an album per product ("Viral Studio · Shot garage").</p><div class="row"><button class="btn" data-a="gptest" ${window.studio?"":"disabled"}>Reconnect</button><button class="btn bad" data-a="gpdisconnect">Disconnect</button><a class="btn" href="https://photos.google.com/albums" target="_blank" rel="noopener">Open my albums ↗</a></div>`
+      :`<p class="note" style="margin-top:-4px">One-time setup, about 10 minutes. Google requires your own free "Google Cloud" key for apps that upload to Google Photos.</p>
+      <ol class="steps-list">
+        <li>Open <a class="title-link" style="color:var(--accent2)" href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com/projectcreate ↗</a>, sign in with the Google account you use for Google Photos, name the project <b>Viral Studio</b> → <b>Create</b>.</li>
+        <li>Open <a class="title-link" style="color:var(--accent2)" href="https://console.cloud.google.com/apis/library/photoslibrary.googleapis.com" target="_blank" rel="noopener">Photos Library API ↗</a> (make sure the Viral Studio project is selected at the top) → <b>Enable</b>.</li>
+        <li>Open <a class="title-link" style="color:var(--accent2)" href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener">Google Auth Platform ↗</a> → <b>Get started</b>: app name <b>Viral Studio</b>, your email → Audience <b>External</b> → your email again → Agree → <b>Create</b>.</li>
+        <li>Go to <b>Audience</b> → under Test users click <b>Add users</b> → add your Google email → Save. Then press <b>Publish app</b> → Confirm (this stops Google from logging you out every 7 days).</li>
+        <li>Go to <b>Clients</b> → <b>Create client</b> → Application type <b>Desktop app</b> → name Viral Studio → <b>Create</b>. Copy the <b>Client ID</b> and <b>Client secret</b> into the boxes below.</li>
+        <li>Press <b>Connect Google Photos</b>. Your browser opens: choose your account. If it says "Google hasn't verified this app", click <b>Advanced → Go to Viral Studio (unsafe)</b>. It's your own app. Then <b>Continue</b>.</li>
+      </ol>
+      <div class="two" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px"><label class="f">Client ID<input type="text" id="gp-id" placeholder="…apps.googleusercontent.com"></label><label class="f">Client secret<input type="text" id="gp-secret" placeholder="GOCSPX-…"></label></div>
+      <div class="row" style="margin-top:10px">${S.ui.gpBusy?`<span class="scrolling"><span class="spin"></span>Waiting for you to sign in in the browser…</span>`:`<button class="btn pri" data-a="gpconnect" ${window.studio?"":"disabled"}>Connect Google Photos</button>`}</div>`}
+      <p class="note" style="margin-top:10px">Finals are also saved on this PC: <code>${esc(S.ui.expDir||"…")}</code> <button class="btn" data-a="openexport2" style="padding:3px 8px;font-size:12px" ${window.studio?"":"disabled"}>Open</button> <button class="btn" data-a="pickexport" style="padding:3px 8px;font-size:12px" ${window.studio?"":"disabled"}>Change</button></p>
     </section>
     <section class="panel"><h3>One-time setup</h3>
       <ol class="steps-list">
@@ -630,6 +639,10 @@ const CONN={
   openws(){window.studio.openWorkspace()},
   async pickexport(){S.ui.expDir=await window.studio.pickExportDir();render()},
   openexport2(){window.studio.openExportDir()},
+  async gpconnect(){const id=($("#gp-id")||{}).value||"",sec=($("#gp-secret")||{}).value||"";if(!GP.hasClient||id.trim()){if(!id.trim()||!sec.trim()){toast("Paste the Client ID and Client secret first");return}await window.studio.gpSetClient({clientId:id,clientSecret:sec})}
+    S.ui.gpBusy=true;render();try{await window.studio.gpConnect();toast("Google Photos connected")}catch(e){toast(String(e.message||e).replace(/^Error invoking remote method[^:]*: /,""))}S.ui.gpBusy=false;GP=await window.studio.gpStatus();render()},
+  async gptest(){S.ui.gpBusy=true;render();try{await window.studio.gpConnect();toast("Reconnected")}catch(e){toast(String(e.message||e).replace(/^Error invoking remote method[^:]*: /,""))}S.ui.gpBusy=false;GP=await window.studio.gpStatus();render()},
+  async gpdisconnect(){await window.studio.gpDisconnect();GP=await window.studio.gpStatus();toast("Google Photos disconnected");render()},
   async saveplaybook(){SETTINGS=await window.studio.setSettings({playbook:$("#st-playbook").value});toast("Playbook saved. Generate and Fix jobs will follow it");render()},
   goconn(){location.hash="connection"}
 };
@@ -667,6 +680,7 @@ async function boot(){
   if(!window.studio){CC={checked:true,ok:false,version:""};if(MODE==="live"){MODE="example";S=load()}render();return}
   try{SETTINGS=await window.studio.getSettings();WS=SETTINGS.workspace||""}catch(e){}
   try{S.ui.expDir=await window.studio.exportDir()}catch(e){}
+  try{GP=await window.studio.gpStatus()}catch(e){}
   render();
   try{CC={checked:true,...await window.studio.checkClaude()}}catch(e){CC={checked:true,ok:false}}
   render();
@@ -871,8 +885,10 @@ async function sendFinal(g){
   const pr=P(g.pid),name=[pr?pr.name:"",g.hook,g.reveal].filter(Boolean).join(" - ");
   if(!window.studio||!window.studio.exportVideo){g.drive=true;toast("Sent (example)");return}
   g.sending=true;render();
-  try{const f=await window.studio.exportVideo({src:media(g.video),product:pr?pr.name:"Videos",name});g.drive=true;g.sentFile=f;toast("Sent · Google Photos will upload it")}
-  catch(e){toast("Couldn't save: "+String(e.message||e).replace(/^Error invoking remote method[^:]*: /,""))}
+  const clean=e=>String(e.message||e).replace(/^Error invoking remote method[^:]*: (Error: )?/,"");
+  try{const f=await window.studio.exportVideo({src:media(g.video),product:pr?pr.name:"Videos",name});g.sentFile=f}catch(e){if(!GP.connected){toast("Couldn't save: "+clean(e));g.sending=false;render();return}}
+  if(GP.connected){try{const r=await window.studio.gpUpload({src:media(g.video),product:pr?pr.name:"Videos",name});g.drive=true;g.photosUrl=r.url;toast("Uploaded to Google Photos")}catch(e){toast(clean(e));GP=await window.studio.gpStatus()}}
+  else{g.drive=true;toast("Saved to the Finals folder. Connect Google Photos on the Connection page to upload")}
   g.sending=false;S.ui.finSel=(S.ui.finSel||[]).filter(x=>x!==g.id);render();
 }
 function gTile(g){

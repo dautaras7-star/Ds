@@ -3,6 +3,8 @@ const { pathToFileURL, fileURLToPath } = require('url');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const http = require('http');
+const crypto = require('crypto');
 
 // ---------- logging ----------
 function log(msg) {
@@ -138,6 +140,122 @@ ipcMain.handle('export:pick', async () => {
   return exportDir();
 });
 // Work out the real video format from the file's first bytes, so the extension matches the contents.
+// ---------- Google Photos (Library API, append-only) ----------
+// The user creates their own OAuth "Desktop app" client in Google Cloud and pastes its id and secret.
+const GP_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.appendonly';
+const gp = () => readSettings().gphotos || {};
+const setGp = (patch) => writeSettings({ gphotos: { ...gp(), ...patch } });
+let gpAccess = { token: '', exp: 0 };
+
+async function gpToken() {
+  const g = gp();
+  if (!g.refreshToken) throw new Error('Google Photos is not connected. Connect it on the Connection page.');
+  if (gpAccess.token && Date.now() < gpAccess.exp - 60000) return gpAccess.token;
+  const res = await net.fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: g.clientId, client_secret: g.clientSecret, refresh_token: g.refreshToken, grant_type: 'refresh_token' }).toString()
+  });
+  const j = await res.json();
+  if (!res.ok) {
+    if (j.error === 'invalid_grant') { setGp({ refreshToken: '' }); throw new Error('Google Photos sign-in expired. Press Connect Google Photos again.'); }
+    throw new Error('Google sign-in failed: ' + (j.error_description || j.error || res.status));
+  }
+  gpAccess = { token: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
+  return gpAccess.token;
+}
+
+async function gpApi(url, token, body) {
+  const res = await net.fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error('Google Photos: ' + ((j.error && j.error.message) || res.status));
+  return j;
+}
+
+ipcMain.handle('gp:status', () => { const g = gp(); return { hasClient: !!(g.clientId && g.clientSecret), connected: !!g.refreshToken, account: g.account || '' }; });
+ipcMain.handle('gp:setClient', (_e, { clientId, clientSecret }) => { setGp({ clientId: String(clientId || '').trim(), clientSecret: String(clientSecret || '').trim(), refreshToken: '' }); return true; });
+ipcMain.handle('gp:disconnect', () => { setGp({ refreshToken: '', albums: {} }); gpAccess = { token: '', exp: 0 }; return true; });
+
+// Sign in through the user's browser with a one-time local callback (loopback + PKCE).
+ipcMain.handle('gp:connect', async () => {
+  const g = gp();
+  if (!g.clientId || !g.clientSecret) throw new Error('Paste the Client ID and Client secret first.');
+  const verifier = crypto.randomBytes(48).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const state = crypto.randomBytes(16).toString('hex');
+  return await new Promise((resolve, reject) => {
+    const server = http.createServer(async (req, res) => {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      if (u.pathname !== '/') { res.writeHead(404); return res.end(); }
+      const done = (ok, msg) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(`<html><body style="font-family:sans-serif;background:#0b0b10;color:#f2f2f7;display:grid;place-items:center;height:100vh"><h2>${ok ? 'Google Photos connected. You can close this tab.' : 'Not connected: ' + msg}</h2></body></html>`); server.close(); };
+      if (u.searchParams.get('state') !== state) { done(false, 'state mismatch'); return reject(new Error('Sign-in was interrupted. Try again.')); }
+      if (u.searchParams.get('error')) { done(false, u.searchParams.get('error')); return reject(new Error('Google sign-in was cancelled: ' + u.searchParams.get('error'))); }
+      try {
+        const r = await net.fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ code: u.searchParams.get('code'), client_id: g.clientId, client_secret: g.clientSecret, redirect_uri: redirect, grant_type: 'authorization_code', code_verifier: verifier }).toString()
+        });
+        const j = await r.json();
+        if (!r.ok || !j.refresh_token) throw new Error(j.error_description || j.error || 'No refresh token returned');
+        setGp({ refreshToken: j.refresh_token, albums: {} });
+        gpAccess = { token: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
+        done(true); resolve(true);
+      } catch (err) { done(false, String(err.message || err)); reject(err); }
+    });
+    let redirect = '';
+    server.listen(0, '127.0.0.1', () => {
+      redirect = `http://127.0.0.1:${server.address().port}`;
+      const auth = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        client_id: g.clientId, redirect_uri: redirect, response_type: 'code', scope: GP_SCOPE,
+        access_type: 'offline', prompt: 'consent', state, code_challenge: challenge, code_challenge_method: 'S256'
+      }).toString();
+      shell.openExternal(auth);
+    });
+    setTimeout(() => { try { server.close(); } catch (_) {} reject(new Error('Sign-in timed out after 5 minutes.')); }, 5 * 60000);
+  });
+});
+
+async function gpAlbum(token, product) {
+  const g = gp(); const albums = g.albums || {};
+  if (albums[product]) return albums[product];
+  const j = await gpApi('https://photoslibrary.googleapis.com/v1/albums', token, { album: { title: 'Viral Studio · ' + product } });
+  setGp({ albums: { ...albums, [product]: j.id } });
+  return j.id;
+}
+
+async function readVideo(src) {
+  if (/^https?:/i.test(src)) {
+    const res = await net.fetch(src);
+    if (!res.ok) throw new Error('Download failed: ' + res.status);
+    return Buffer.from(await res.arrayBuffer());
+  }
+  const from = /^file:/i.test(src) ? fileURLToPath(src) : path.join(ws(), src);
+  return fs.readFileSync(from);
+}
+
+ipcMain.handle('gp:upload', async (_e, { src, product, name }) => {
+  const buf = await readVideo(src);
+  const ext = sniffVideo(buf);
+  if (!ext) throw new Error("This clip isn't a video file.");
+  const mime = ext === 'mov' ? 'video/quicktime' : ext === 'webm' ? 'video/webm' : 'video/mp4';
+  const token = await gpToken();
+  const up = await net.fetch('https://photoslibrary.googleapis.com/v1/uploads', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream', 'X-Goog-Upload-Content-Type': mime, 'X-Goog-Upload-Protocol': 'raw', 'X-Goog-Upload-File-Name': `${clean(name)}.${ext}` },
+    body: buf
+  });
+  const uploadToken = await up.text();
+  if (!up.ok) throw new Error('Google Photos upload failed: ' + up.status);
+  let albumId = '';
+  try { albumId = await gpAlbum(token, clean(product)); } catch (err) { log('album: ' + err); }
+  const body = { newMediaItems: [{ description: name, simpleMediaItem: { fileName: `${clean(name)}.${ext}`, uploadToken } }] };
+  if (albumId) body.albumId = albumId;
+  const j = await gpApi('https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate', token, body);
+  const r = (j.newMediaItemResults || [])[0] || {};
+  if (r.status && r.status.code) throw new Error('Google Photos: ' + (r.status.message || 'item not created'));
+  log(`gphotos uploaded ${name} (${buf.length} bytes)`);
+  return { url: (r.mediaItem && r.mediaItem.productUrl) || 'https://photos.google.com/' };
+});
+
 function sniffVideo(buf) {
   if (buf.length > 12 && buf.toString('latin1', 4, 8) === 'ftyp') return buf.toString('latin1', 8, 12) === 'qt  ' ? 'mov' : 'mp4';
   if (buf.length > 4 && buf.readUInt32BE(0) === 0x1A45DFA3) return 'webm';
