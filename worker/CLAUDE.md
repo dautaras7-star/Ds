@@ -103,8 +103,8 @@ Input: `product` (everything known: name, from, description, niche, variation, s
 - **Genjutsu**: model `hf_mult_replace_object`, source video = `source` (download it first if it's an Instagram link and upload it to Higgsfield), images = product refs. Prompt: the user's template without the ownership sentence (the source belongs to someone else): keep everything identical, swap only the product, no text, no audio unless asked.
 If the hook/reveal has an `analysis` (Claude's shot-by-shot breakdown of the reference), rebuild THAT structure: same number of shots, same timing, same camera moves, same beat and the same hook mechanism. Swap in our product and apply the user's `changes`. Don't invent a different idea.
 How close to stay is `changes.closeness`:
-- `similar` (default): same shots, timing and hook mechanism, but write a FRESH script: new lines with the same intent, energy, length and rhythm. Not word for word.
-- `very close`: keep the script nearly identical (only adapt it to our product).
+- `similar`: same shots, timing and hook mechanism, but write a FRESH script: new lines with the same intent, energy, length and rhythm. Not word for word.
+- `very close` (default): keep the shots and the script nearly identical, only adapted to our product and the user's changes.
 - `loose`: keep only the hook idea; shots and script can change.
 If the user typed a script in `changes.script`, use theirs.
 If the hook/reveal has a `spec` (a clip the user wrote themselves), it is the brief: `description` is what happens, and every other non-empty field (length, shots, pace, first_seconds, ending, people, who, clothes, pets, hands_only, location, time_of_day, lighting, season, camera_style, movement, angles, dialogue, accent, script, voiceover, music, sound_effects, product_appears_at, product_shown, must_show, show_box, mood, avoid) is a requirement. `spec.type` "Full video" means a complete ad (hook + product + payoff), not a short part. Fill the empty fields yourself following the playbook.

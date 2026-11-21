@@ -742,7 +742,7 @@ function genModal(){
     ${breakdown(x)}
     <div class="form">
       <div><div class="note" style="margin-bottom:6px">Engine</div><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="geneng" data-v="Seedance">Seedance · build from scratch</button><button aria-pressed="${eng==="Genjutsu"}" data-a="geneng" data-v="Genjutsu">Genjutsu · swap into the clip</button></div></div>
-      <label class="f">How close to the original?<select id="gq-close"><option value="similar">Similar: same shots, timing and hook idea, new script in the same spirit</option><option value="very close">Very close: nearly the same script and shots</option><option value="loose">Loose: keep only the hook idea</option></select></label>
+      <label class="f">How close to the original?<select id="gq-close"><option value="very close" selected>Very close: nearly the same script and shots</option><option value="similar">Similar: same shots and hook idea, new script in the same spirit</option><option value="loose">Loose: keep only the hook idea</option></select></label>
       <div class="two">${q("gq-people","People: who should be in it?","e.g. young dad, 30s, beard, grey hoodie",false,"people")}${q("gq-bg","Background / location","e.g. Walmart toy aisle, cozy living room",false,"background")}</div>
       ${q("gq-script","Script: what do they say?","e.g. Wife whispers: \"Don't tell my husband…\" then he finds the box",true,"script")}
       <div class="two">${q("gq-mood","Mood / emotion","e.g. sneaky, funny, then shocked",false,"mood")}<label class="f">Length (seconds)${AN&&AN.duration?`<div class="orig">Original: ${esc(AN.duration)}</div>`:""}${chips("gq-len",["5s","6s","8s","10s","15s"])}<input type="text" id="gq-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label></div>
@@ -1031,7 +1031,7 @@ $("#main").addEventListener("click",e=>{
     case"nodel":S.ui.delAsk=null;break;
     case"genask":{S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(pr&&!pr.sugg)askSugg(pr,x);if(x&&!x.analysis)analyzeClip(x);break}
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
-    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"similar"});S.ui.genFor=null;break}
+    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"very close"});S.ui.genFor=null;break}
     case"gencancel":S.ui.genFor=null;break;
     
     case"findclips":findClips(b.dataset.v);break;
