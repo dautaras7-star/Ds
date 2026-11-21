@@ -228,6 +228,9 @@ ol.steps-list li{margin:4px 0}
 .lcard.dragging{opacity:.35}
 .lcard.dropbefore{box-shadow:-4px 0 0 var(--accent2)}
 .lcard.dropafter{box-shadow:4px 0 0 var(--accent2)}
+.pastlist{display:flex;flex-direction:column;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:260px;overflow:auto}
+.pastitem{border-bottom:1px solid var(--line);padding-bottom:8px}
+.pastitem:last-child{border-bottom:0;padding-bottom:0}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -631,7 +634,7 @@ const LIVE={
   },
   fixsend(b,id){const g=S.gens.find(x=>x.id===id);const note=$("#fx").value.trim();if(!note){toast("Write what should change");return}const pr=P(g.pid);
     g.history=g.history||[];if(!g.history.length&&g.video)g.history.push({v:1,video:g.video,prompt:g.prompt||"",job_id:g.job_id||"",note:"",at:Date.now()});
-    g.fix=note;g.st="fixing";S.ui.fixOpen=null;g.started=Date.now();g.stuck=false;
+    g.fixNotes=fixNotesOf(g);g.fixNotes.push({note,at:Date.now(),v:(g.history||[]).length+1});g.fix=note;g.st="fixing";S.ui.fixOpen=null;g.started=Date.now();g.stuck=false;
     const hx=S.hooks.find(h=>h.name===g.hook),rx=S.reveals.find(h=>h.name===g.reveal);
     g.jobId=runJob("fix",`Fix v${g.history.length+1} · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:"",clip:hx?hx.clip||"":"",spec:hx?hx.spec||null:null}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:"",clip:rx?rx.clip||"":"",spec:rx?rx.spec||null:null}:null,
       changes:g.changes||{},engine:g.engine,source:pr.url||"",note,
@@ -907,15 +910,22 @@ async function sendFinal(g){
   else{g.drive=true;toast("Saved to the Finals folder. Connect Google Photos on the Connection page to upload")}
   g.sending=false;S.ui.finSel=(S.ui.finSel||[]).filter(x=>x!==g.id);render();
 }
+function fixNotesOf(g){return g.fixNotes||(g.fix?[{note:g.fix,at:0,v:0}]:[])}
+function pastFixes(g){
+  const list=fixNotesOf(g);if(!list.length)return "";
+  const open=S.ui.pastFor===g.id;
+  return `<button class="btn" data-a="pastfix" data-id="${g.id}" style="font-size:12px;padding:5px">${open?"Hide":"My past fixes"} (${list.length})</button>
+  ${open?`<div class="pastlist">${list.map((f,i)=>({f,i})).reverse().map(({f,i})=>`<div class="pastitem"><div class="note">${f.v?`For v${f.v}`:"Earlier"}${f.at?` · ${new Date(f.at).toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`:""}</div><div style="white-space:pre-wrap;font-size:13px">${esc(f.note)}</div><button class="btn" data-a="usefix" data-id="${g.id}" data-i="${i}" style="font-size:11px;padding:3px 8px;margin-top:4px">Use again</button></div>`).join("")}</div>`:""}`;
+}
 function gTile(g){
   const busy=["generating","fixing","upscaling"].includes(g.st)&&!g.stuck;const st=busy?`<div class="upov"><span class="spin" style="width:30px;height:30px;border-width:3px"></span><b>${g.st==="fixing"?"Fixing…":g.st==="upscaling"?"Upscaling…":"Generating…"}</b><span data-job="${esc(g.jobId||"")}">${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"")}</span></div>`:g.stuck?'<span class="status fix">Didn\'t come back</span>':"";
   let act;
-  if(S.ui.fixOpen===g.id)act=`${(g.history||[]).filter(h=>h.note).length?`<div class="note">Earlier fixes (Claude keeps them):${g.history.filter(h=>h.note).map(h=>`<div>v${h.v}: ${esc(h.note)}</div>`).join("")}</div>`:""}<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
+  if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
+  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}${pastFixes(g)}</div>`;
 }
 
 function route(){let h=(location.hash||"#products").slice(1);if(h==="library")h="concepts";return V[h]&&h!=="product"?h:"products"}
@@ -971,8 +981,10 @@ $("#main").addEventListener("click",e=>{
     case"rmcombo":{const c=S.concept;if(c.hooks.length>1&&c.reveals.length>1){toast("Unselect a hook or reveal to drop this pair")}else if(c.hooks.length===1){c.reveals=c.reveals.filter(x=>x!==b.dataset.r)}else{c.hooks=c.hooks.filter(x=>x!==b.dataset.h)}break}
     case"generate":{const c=S.concept;const hk=i=>S.hooks.find(x=>x.id===i).name,rv=i=>S.reveals.find(x=>x.id===i).name;const pr=P(c.pid);const made=[];c.hooks.forEach(h=>c.reveals.forEach(r=>{const g={id:uid(),pid:c.pid,hook:hk(h),reveal:rv(r),engine:c.engines[h+"|"+r]||"Seedance",dur:"0:15",cr:72,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};S.gens.unshift(g);made.push(g);S.credits+=72}));S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${made.length} video${made.length>1?"s":""}`);later(4000,()=>made.forEach(g=>{g.st="ready";g.bg=pr.img||IMG.v4}));location.hash="generations";break}
     case"fix":S.ui.fixOpen=id;S.ui.dropAsk=null;break;
+    case"pastfix":S.ui.pastFor=S.ui.pastFor===id?null:id;break;
+    case"usefix":{const f=fixNotesOf(gen)[+b.dataset.i];S.ui.fixOpen=id;S.ui.dropAsk=null;render();const t=$("#fx");if(t&&f){t.value=f.note;t.focus()}return}
     case"fixcancel":S.ui.fixOpen=null;break;
-    case"fixsend":gen.fix=$("#fx").value.trim();gen.st="fixing";S.ui.fixOpen=null;S.credits+=gen.cr;toast("Regenerating with your fix");later(3500,()=>{gen.st="ready"});break;
+    case"fixsend":{const nt=$("#fx").value.trim();gen.fixNotes=fixNotesOf(gen);gen.fixNotes.push({note:nt,at:Date.now(),v:gen.fixNotes.length+2});gen.fix=nt}gen.st="fixing";S.ui.fixOpen=null;S.credits+=gen.cr;toast("Regenerating with your fix");later(3500,()=>{gen.st="ready"});break;
     case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
     case"dropno":S.ui.dropAsk=null;break;
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
