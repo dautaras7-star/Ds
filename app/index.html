@@ -477,9 +477,9 @@ finals(){
     <div class="lab"><b>${esc(p?.name||"")}</b>${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</div>${g.video&&g.st!=="upscaling"?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}
     ${g.st==="upscaling"?(g.stuck?`<div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button></div>`:'<div class="note">Send unlocks when the upscale is done.</div>')
       :S.ui.finDel===g.id?`<div class="confirm">Delete this final for good?</div><div class="row fill"><button class="btn" data-a="findelno">Keep</button><button class="btn bad" data-a="findelyes" data-id="${g.id}">Delete</button></div>`
-      :`<div class="row fill">${g.drive?`<button class="btn ok" data-a="send" data-id="${g.id}" title="Send again">Sent ✓</button>`:`<button class="btn pri" data-a="send" data-id="${g.id}">${g.sending?"Sending…":"Send to Photos"}</button>`}<button class="btn bad" data-a="findel" data-id="${g.id}" aria-label="Delete">Delete</button></div>${g.drive?"":`<button class="btn" data-a="unfinal" data-id="${g.id}" style="font-size:12px;padding:5px">Back to Generations</button>`}`}
+      :`<div class="row fill">${g.drive?`<button class="btn ok" data-a="send" data-id="${g.id}" title="Send again">Sent ✓</button>`:`<button class="btn pri" data-a="send" data-id="${g.id}">${g.sending?"Sending…":"Send to Drive"}</button>`}<button class="btn bad" data-a="findel" data-id="${g.id}" aria-label="Delete">Delete</button></div>${g.drive?"":`<button class="btn" data-a="unfinal" data-id="${g.id}" style="font-size:12px;padding:5px">Back to Generations</button>`}`}
   </div>`};
-  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Send saves the video to your Finals folder, which Google Drive for desktop backs up to Google Photos.</p></div><div class="row"><span class="example">Example data</span><button class="btn" data-a="openexport">Open Finals folder</button></div></div>
+  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled with Topaz to 1080p. Send to Drive saves the video to your Finals folder, which Google Drive for desktop uploads for you.</p></div><div class="row"><span class="example">Example data</span><button class="btn" data-a="openexport">Open Finals folder</button></div></div>
   ${selectable.length?`<div class="row panel" style="margin-bottom:16px;padding:10px 14px">
     <label class="check"><input type="checkbox" data-a="finall" ${allOn?"checked":""}>Select all (${selectable.length})</label>
     <span class="note">${selList.length} selected</span><span class="sp"></span>
@@ -851,7 +851,7 @@ async function sendFinal(g){
   const pr=P(g.pid),name=[pr?pr.name:"",g.hook,g.reveal].filter(Boolean).join(" - ");
   if(!window.studio||!window.studio.exportVideo){g.drive=true;toast("Sent (example)");return}
   g.sending=true;render();
-  try{const f=await window.studio.exportVideo({src:media(g.video),product:pr?pr.name:"Videos",name});g.drive=true;g.sentFile=f;toast("Saved to Finals folder · Google Photos will back it up")}
+  try{const f=await window.studio.exportVideo({src:media(g.video),product:pr?pr.name:"Videos",name});g.drive=true;g.sentFile=f;toast("Sent to Drive · Google Drive will upload it")}
   catch(e){toast("Couldn't save: "+String(e.message||e).replace(/^Error invoking remote method[^:]*: /,""))}
   g.sending=false;S.ui.finSel=(S.ui.finSel||[]).filter(x=>x!==g.id);render();
 }
