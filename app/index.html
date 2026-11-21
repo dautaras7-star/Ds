@@ -445,7 +445,7 @@ concepts(){
     const word=kind==="hook"?"hook":"reveal",finding=Object.values(JOBS).some(j=>j.type==="findclips"&&j.kind===kind);
     return `<section class="cstep panel">
       <div class="row" style="justify-content:space-between;margin-bottom:12px"><h2 style="margin:0">${title} <span class="note">${list.length}</span></h2>
-        <div class="row">${finding||S.ui.finding===kind?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Finding viral ${word}s…</span>`:`<button class="btn cy" data-a="findclips" data-v="${kind}">Find viral ${word}s</button>`}<button class="btn" data-a="addc" data-v="${kind}">Add ${word}</button>${list.some(x=>x.clipName&&!x.clip)?`<label class="btn pri">Re-attach clips<input type="file" accept="video/*" multiple data-relink="${kind}" style="display:none"></label>`:""}</div></div>
+        <div class="row">${finding||S.ui.finding===kind?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Finding viral ${word}s…</span>`:`<button class="btn cy" data-a="findclips" data-v="${kind}">Find viral ${word}s</button>`}<button class="btn" data-a="addc" data-v="${kind}">Add ${word}</button>${list.some(x=>x.clipName&&!x.clip&&!CLIPS[x.id])&&window.studio&&window.studio.findMedia?`<button class="btn pri" data-a="autofind" data-v="${kind}">Find my clips automatically</button>`:""}${list.some(x=>x.clipName&&!x.clip)?`<label class="btn">Re-attach clips<input type="file" accept="video/*" multiple data-relink="${kind}" style="display:none"></label>`:""}</div></div>
       ${S.ui.addKind===kind?`<form class="addform" id="addform2" data-kind="${kind}" style="background:var(--panel2);padding:12px;border-radius:12px">
         <label class="f">Name<input type="text" id="a2n" required placeholder="${kind==="hook"?"e.g. Pass out in the store":"e.g. Unbox → instant use"}"></label>
         <label class="f">Best product types<input type="text" id="a2f" placeholder="e.g. Gadgets, toys"></label>
@@ -815,6 +815,7 @@ function findClips(kind){
   }else{S.ui.finding=kind;later(2500,()=>{S.ui.finding=null;list.push({id:uid(),name:kind==="hook"?"\"Don't buy this…\" reverse psychology":"Before/after split screen",desc:kind==="hook"?"Creator warns viewers not to buy it, then shows why everyone does.":"Left half: problem. Right half: product fixing it.",fits:"Most products",url:"https://www.instagram.com/",views:"3.1M",bg:G("#232336","#0b0b10")});toast(`Added 1 viral ${word} (example)`)})}
 }
 async function saveFile(file){
+  if(window.studio&&window.studio.importMedia){const src=window.studio.pathOf(file);if(src){try{return await window.studio.importMedia(src)}catch(e){window.studio.log("import failed "+file.name+": "+e.message)}}}
   if(window.studio&&window.studio.saveMedia){const buf=await file.arrayBuffer();return await window.studio.saveMedia(file.name,buf)}
   return URL.createObjectURL(file);
 }
@@ -997,6 +998,10 @@ $("#main").addEventListener("click",e=>{
     case"sugg":{const el=$("#"+b.dataset.for);if(el){el.value=b.dataset.v;el.dispatchEvent(new Event("input"))}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
     case"suggother":{const el=$("#"+b.dataset.for);if(el){el.value="";el.focus()}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
     case"suggmore":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(MODE!=="live"){toast("Options come from Claude in Live mode");return}askSugg(pr,x);break}
+    case"autofind":(async()=>{const kind=b.dataset.v,list=kind==="hook"?S.hooks:S.reveals,miss=list.filter(x=>x.clipName&&!x.clip&&!CLIPS[x.id]);toast("Looking in Downloads, Desktop, Videos, Documents…");
+      let found={};try{found=await window.studio.findMedia(miss.map(x=>x.clipName))}catch(e){toast("Search failed: "+e.message);return}
+      let n=0;for(const x of miss){const src=found[x.clipName];if(!src)continue;try{x.clip=await window.studio.importMedia(src);n++}catch(e){window.studio.log("autofind import "+src+": "+e.message)}}
+      const left=miss.length-n;toast(n?`Attached ${n} clip${n===1?"":"s"}${left?` · ${left} not found, use Re-attach clips`:""}`:"No matching files found. Use Re-attach clips and pick them");render()})();return;
     case"relinkclose":S.ui.relinkOpen=false;PENDING_CLIPS=[];toast("Clips attached");break;
     case"ownclip":{S.ui.ownClip=true;const pr=P(S.concept.pid);if(pr&&!pr.sugg)askSugg(pr,null);break}
     case"ownclipclose":S.ui.ownClip=false;break;
@@ -1040,7 +1045,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.dataset&&t.dataset.notefiles&&t.files&&t.files.length){const p=P(S.ui.prod);p.noteFiles=p.noteFiles||[];for(const f of [...t.files]){try{p.noteFiles.push({name:f.name,path:await saveFile(f)})}catch(err){toast("Couldn't save "+f.name)}}toast("Files attached");render();return}
   if(t.dataset&&t.dataset.addphotos&&t.files&&t.files.length){const p=P(S.ui.prod);p.photos=p.photos||[];for(const f of [...t.files]){try{p.photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}if(!p.img&&p.photos[0])p.img=media(p.photos[0]);toast("Photos added");render();return}
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
-  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveFile(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip")}render();return}
+  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveFile(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip: "+(err.message||err));window.studio&&window.studio.log&&window.studio.log("upload clip failed: "+(err.message||err))}render();return}
   const num=v=>parseInt(String(v).replace(/[^0-9]/g,""),10);
   if(t.id==="cr-posts"&&num(t.value)>0)S.criteria.maxPosts=num(t.value);
   if(t.id==="cr-fol"&&num(t.value)>=0)S.criteria.minFollowers=num(t.value);

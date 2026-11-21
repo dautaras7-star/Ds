@@ -281,6 +281,38 @@ ipcMain.handle('export:video', async (_e, { src, product, name }) => {
   log(`exported ${file} (${ext}, ${buf.length} bytes)`);
   return file;
 });
+// Copy a file the user picked (by its real path) into the work folder.
+ipcMain.handle('media:import', (_e, srcPath) => {
+  try {
+    const safe = path.basename(String(srcPath)).replace(/[^A-Za-z0-9._-]/g, '_').slice(-80);
+    const fn = Date.now().toString(36) + '-' + safe;
+    fs.copyFileSync(srcPath, path.join(ws(), 'media', fn));
+    log('imported ' + srcPath + ' -> media/' + fn);
+    return 'media/' + fn;
+  } catch (err) { log('import failed ' + srcPath + ': ' + err); throw err; }
+});
+// Look for clips by file name in the usual folders (Downloads, Desktop, Videos, Documents), two levels deep.
+ipcMain.handle('media:find', (_e, names) => {
+  const key = (n) => String(n || '').toLowerCase().replace(/\.[a-z0-9]+$/, '').replace(/[\s_\-()]/g, '');
+  const want = new Map((names || []).map((n) => [key(n), n]));
+  const found = {};
+  const roots = ['downloads', 'desktop', 'videos', 'documents'].map((k) => { try { return app.getPath(k); } catch (_) { return null; } }).filter(Boolean);
+  const walk = (dir, depth) => {
+    let items = [];
+    try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const it of items) {
+      const full = path.join(dir, it.name);
+      if (it.isDirectory()) { if (depth < 2 && !it.name.startsWith('.')) walk(full, depth + 1); continue; }
+      if (!/\.(mp4|mov|webm|m4v)$/i.test(it.name)) continue;
+      const k = key(it.name);
+      if (want.has(k) && !found[want.get(k)]) found[want.get(k)] = full;
+    }
+  };
+  for (const r of roots) walk(r, 0);
+  log(`media:find looked for ${want.size}, found ${Object.keys(found).length} in ${roots.join(', ')}`);
+  return found;
+});
+ipcMain.handle('app:log', (_e, msg) => { log('ui: ' + String(msg).slice(0, 500)); return true; });
 ipcMain.handle('media:save', (_e, name, bytes) => {
   const safe = String(name || 'file').replace(/[^A-Za-z0-9._-]/g, '_').slice(-80);
   const fn = Date.now().toString(36) + '-' + safe;

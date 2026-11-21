@@ -1,13 +1,17 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('studio', {
   platform: process.platform,
-  version: '0.12.0',
+  version: '0.12.1',
   checkClaude: () => ipcRenderer.invoke('cc:check'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (s) => ipcRenderer.invoke('settings:set', s),
   openWorkspace: () => ipcRenderer.invoke('ws:open'),
   saveMedia: (name, bytes) => ipcRenderer.invoke('media:save', name, bytes),
+  pathOf: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (_) { return ''; } },
+  importMedia: (p) => ipcRenderer.invoke('media:import', p),
+  findMedia: (names) => ipcRenderer.invoke('media:find', names),
+  log: (m) => ipcRenderer.invoke('app:log', m),
   exportVideo: (o) => ipcRenderer.invoke('export:video', o),
   gpStatus: () => ipcRenderer.invoke('gp:status'),
   gpSetClient: (o) => ipcRenderer.invoke('gp:setClient', o),
