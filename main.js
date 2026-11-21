@@ -72,6 +72,12 @@ function resolveClaude() {
   return cmd;
 }
 
+function withFfmpeg(env) {
+  const bin = ffmpegPath(); if (!bin) return { ...env };
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
+  return { ...env, [key]: path.dirname(bin) + path.delimiter + (env[key] || ''), FFMPEG_PATH: bin };
+}
+
 function quoteWin(a) { return /[\s"&|<>^()]/.test(a) ? '"' + a.replace(/"/g, '\\"') + '"' : a; }
 
 function runClaude(args, input, onLine) {
@@ -79,7 +85,7 @@ function runClaude(args, input, onLine) {
   const isWin = process.platform === 'win32';
   // On Windows the CLI is often a .cmd shim, which needs a shell to start.
   const child = spawn(isWin ? quoteWin(resolveClaude()) : resolveClaude(), isWin ? args.map(quoteWin) : args, {
-    cwd: ws(), shell: isWin, windowsHide: true, env: { ...process.env }
+    cwd: ws(), shell: isWin, windowsHide: true, env: withFfmpeg(process.env)
   });
   let buf = '';
   child.stdout.on('data', (d) => {
@@ -254,6 +260,54 @@ ipcMain.handle('gp:upload', async (_e, { src, product, name }) => {
   if (r.status && r.status.code) throw new Error('Google Photos: ' + (r.status.message || 'item not created'));
   log(`gphotos uploaded ${name} (${buf.length} bytes)`);
   return { url: (r.mediaItem && r.mediaItem.productUrl) || 'https://photos.google.com/' };
+});
+
+// ---------- bundled ffmpeg (joining parts; also put on Claude's PATH) ----------
+function ffmpegPath() {
+  try { const p = require('ffmpeg-static'); return p ? p.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep) : ''; } catch (_) { return ''; }
+}
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const bin = ffmpegPath(); if (!bin) return reject(new Error('Video tool (ffmpeg) is missing from the app.'));
+    const c = spawn(bin, args, { windowsHide: true }); let err = '';
+    c.stderr.on('data', (d) => { err += d.toString(); if (err.length > 200000) err = err.slice(-100000); });
+    c.on('error', reject);
+    c.on('close', (code) => code === 0 ? resolve(err) : reject(new Error('ffmpeg failed: ' + err.split('\n').slice(-3).join(' ').slice(0, 300))));
+  });
+}
+async function probe(file) {
+  const out = await runFfmpeg(['-hide_banner', '-i', file]).catch((e) => String(e.message));
+  const fps = parseFloat((out.match(/, ([\d.]+) fps/) || [])[1]) || 30;
+  return { audio: /Stream #.*Audio:/.test(out), fps };
+}
+// Join clips in order into one vertical 1080x1920 video, adding silence to clips without sound.
+ipcMain.handle('video:join', async (_e, { srcs, product, name }) => {
+  const tmp = path.join(ws(), 'media', 'join-' + Date.now().toString(36));
+  fs.mkdirSync(tmp, { recursive: true });
+  const inputs = [];
+  for (let i = 0; i < srcs.length; i++) {
+    const buf = await readVideo(srcs[i]); const ext = sniffVideo(buf) || 'mp4';
+    const f = path.join(tmp, `in${i}.${ext}`); fs.writeFileSync(f, buf); inputs.push(f);
+  }
+  const infos = []; for (const f of inputs) infos.push(await probe(f));
+  const fps = Math.min(60, Math.max(...infos.map((x) => Math.round(x.fps)), 24));
+  const parts = [];
+  for (let i = 0; i < inputs.length; i++) {
+    const out = path.join(tmp, `part${i}.mp4`);
+    const v = `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${fps}`;
+    const args = ['-y', '-i', inputs[i]];
+    if (!infos[i].audio) args.push('-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo');
+    args.push('-vf', v, '-map', '0:v:0', '-map', infos[i].audio ? '0:a:0' : '1:a:0', '-shortest',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-ar', '48000', '-ac', '2', out);
+    await runFfmpeg(args); parts.push(out);
+  }
+  const list = path.join(tmp, 'list.txt');
+  fs.writeFileSync(list, parts.map((p) => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n'));
+  const outName = 'media/joined-' + Date.now().toString(36) + '.mp4';
+  await runFfmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', path.join(ws(), outName)]);
+  try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {}
+  log(`joined ${srcs.length} clips -> ${outName}`);
+  return outName;
 });
 
 function sniffVideo(buf) {

@@ -649,7 +649,7 @@ const LIVE={
         g.history.push({v:g.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note,analysis:r.analysis||"",method:r.method||"",at:Date.now()});S.credits+=r.credits||0}
       else g.st="ready"})},
   approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling");
-    g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id,video:g.video||"",method:(SETTINGS&&SETTINGS.upscaleMethod)||"web",settings:{model:(SETTINGS&&SETTINGS.upscaleModel)||"Topaz Starlight Precise",resolution:(SETTINGS&&SETTINGS.upscaleRes)||"1080p",fps:(SETTINGS&&SETTINGS.upscaleFps)||"60 FPS"},useChrome:((SETTINGS&&SETTINGS.upscaleMethod)||"web")==="web"},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.upSpec=r.settings_used||"";g.drive=false;toast("Upscaled · in Finals")}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
+    g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id,video:g.video||"",method:(SETTINGS&&SETTINGS.upscaleMethod)||"web",settings:{model:(SETTINGS&&SETTINGS.upscaleModel)||"Topaz Starlight Precise",resolution:(SETTINGS&&SETTINGS.upscaleRes)||"1080p",fps:(SETTINGS&&SETTINGS.upscaleFps)||"60 FPS"},useChrome:((SETTINGS&&SETTINGS.upscaleMethod)||"web")==="web"},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.upSpec=r.settings_used||"";g.drive=false;toast("Upscaled · in Finals");checkJoin(g)}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
   _driveall(){}
 };
 const CONN={
@@ -706,7 +706,63 @@ async function boot(){
   render();
   recoverStuck();
 }
-function glab(g){return g.hook&&g.reveal?`<b>${esc(g.hook)}</b>+ ${esc(g.reveal)}`:g.hook?`<b>${esc(g.hook)}</b>Hook`:`<b>${esc(g.reveal)}</b>Reveal`}
+const PART_TYPES={unboxing:"Unboxing",reveal:"Reveal",details:"Close-up details",reaction:"Reaction",payoff:"Payoff",demo:"How it works"};
+function nextBusy(g){return Object.values(JOBS).some(j=>j.type==="nextclips"&&j.gid===g.id)||S.ui.nextBusy===g.id}
+function askNext(g){
+  const pr=P(g.pid);g.nextIdeas=g.nextIdeas||[];
+  if(MODE==="live"&&window.studio){
+    const id=runJob("nextclips","Next clips · "+(g.hook||g.reveal),{product:productInfo(pr),clip:{name:g.hook||g.reveal,prompt:g.prompt||"",video:g.video||"",history:(g.history||[]).map(h=>h.note).filter(Boolean)},known:g.nextIdeas.map(i=>i.title),count:6},r=>{if(r.ok)g.nextIdeas.push(...(r.ideas||[]).map(i=>({...i,sel:false})))});
+    JOBS[id].gid=g.id;
+  }else{S.ui.nextBusy=g.id;later(1200,()=>{S.ui.nextBusy=null;g.nextIdeas.push(
+    {type:"unboxing",title:"Unboxing on the couch",description:"Same mom and kid on the living-room couch at home, tearing open the box, kid gasps when the pajamas appear",setting:"Living room couch, evening, warm lamps",people:"Same mom and kid as part 1",length:"6s"},
+    {type:"reveal",title:"Lights off: it glows",description:"Kid in the pajamas in the dark bedroom, mom flips the switch, the dinosaurs glow, kid jumps on the bed screaming",setting:"Kids' bedroom, lights off",people:"Same kid",length:"6s"},
+    {type:"details",title:"Glow details close-up",description:"Slow close-up of the glowing print and satin fabric, little hand touching it",setting:"Dark bedroom",people:"Kid's hands only",length:"4s"})})}
+}
+function nextModal(){
+  const g=S.gens.find(x=>x.id===S.ui.nextFor);if(!g)return "";
+  const ideas=g.nextIdeas||[],busy=nextBusy(g),n=ideas.filter(i=>i.sel).length;
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="Generate further clips"><div class="modal-box" style="width:min(860px,100%)">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Generate further clips · part ${(g.part||1)+1}+</div><h2 style="font-size:20px;margin-top:2px">After “${esc(g.hook||g.reveal)}”</h2></div><button class="btn" data-a="nextclose" aria-label="Close">✕</button></div>
+    <p class="note" style="margin:0">Claude suggests the next parts of the story: same people, new places. Tick the ones you like and press Generate. When all parts are approved and upscaled, they're joined into one video in Finals.</p>
+    ${busy?`<div class="panel" style="padding:12px"><span class="scrolling"><span class="spin"></span>Claude is watching the clip and thinking of next scenes…</span></div>`:""}
+    <div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${ideas.map((it,i)=>`<label class="lcard" style="display:block;cursor:pointer" aria-pressed="${!!it.sel}">
+      <div class="row" style="justify-content:space-between"><span class="pill ${it.type==="reveal"||it.type==="demo"?"ok":it.type==="unboxing"?"cy":"pk"}">${esc(PART_TYPES[it.type]||it.type||"Part")}</span><input type="checkbox" data-nextsel="${i}" ${it.sel?"checked":""} style="width:18px;height:18px;accent-color:var(--accent2)"></div>
+      <h4 style="margin-top:6px">${esc(it.title)}</h4><p>${esc(it.description)}</p>
+      ${it.setting?`<p><b style="color:var(--fg)">Where:</b> ${esc(it.setting)}</p>`:""}${it.people?`<p><b style="color:var(--fg)">Who:</b> ${esc(it.people)}</p>`:""}${it.length?`<div class="fits">${esc(it.length)}</div>`:""}
+    </label>`).join("")}</div>
+    ${!ideas.length&&!busy?'<p class="note">No suggestions yet.</p>':""}
+    <div class="row" style="justify-content:space-between"><button class="btn" data-a="nextmore" ${busy?"disabled":""}>More ideas</button><div class="row"><button class="btn" data-a="nextclose">Cancel</button><button class="btn pri big" data-a="nextgo" ${n?"":"disabled"}>Generate ${n||""} clip${n===1?"":"s"}</button></div></div>
+  </div></div>`;
+}
+function genPart(parent,idea,order){
+  const pr=P(parent.pid);
+  parent.story=parent.story||parent.id;parent.part=parent.part||1;
+  const g={id:uid(),pid:parent.pid,hook:idea.title,reveal:"",engine:"Seedance",dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating",story:parent.story,part:order,parentId:parent.id,idea};
+  S.gens.unshift(g);g.started=Date.now();
+  if(MODE==="live"&&window.studio){
+    g.jobId=runJob("generate",`Part ${order} · ${idea.title}`,{product:productInfo(pr),hook:{name:idea.title,desc:idea.description,spec:{type:"Story part",description:idea.description,location:idea.setting||"",who:idea.people||"",length:idea.length||""}},reveal:null,engine:"Seedance",
+      continuity:{part:order,previous_prompt:parent.prompt||"",previous_video:parent.video||"",same_people:true,new_setting:idea.setting||"",note:"Same people (faces, age, hair, clothes) as the previous part, in a different place. No start frame. Clearly a new scene."},
+      changes:{},maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||""});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
+  }else{S.credits+=72;later(3000,()=>{g.st="ready";g.dur="0:06";g.cr=72;g.bg=pr&&pr.img||IMG.v3})}
+}
+async function checkJoin(g){
+  if(!g.story)return;
+  const parts=S.gens.filter(x=>x.story===g.story&&!x.joined).sort((a,b)=>(a.part||1)-(b.part||1));
+  if(parts.length<2||parts.some(x=>x.st!=="final"||!x.video))return;
+  const key=parts.map(x=>x.id+":"+x.video).join("|"),old=S.gens.find(x=>x.joined&&x.story===g.story);
+  if(old&&old.joinKey===key)return;
+  const pr=P(g.pid),root=parts[0],name=`${pr?pr.name:""} - full video - ${root.hook||root.reveal}`;
+  if(!window.studio||!window.studio.joinVideos){S.gens.unshift({id:uid(),pid:g.pid,hook:"Full video · "+(root.hook||root.reveal),reveal:"",engine:"Joined",st:"final",dur:"",video:"",bg:root.bg,joined:true,story:g.story,joinKey:key});toast("Joined (example)");render();return}
+  toast("Joining "+parts.length+" parts into one video…");
+  try{const out=await window.studio.joinVideos({srcs:parts.map(x=>media(x.video)),product:pr?pr.name:"Videos",name});
+    if(old)S.gens=S.gens.filter(x=>x!==old);
+    S.gens.unshift({id:uid(),pid:g.pid,hook:"Full video · "+(root.hook||root.reveal),reveal:"",engine:"Joined",st:"final",dur:`${parts.length} parts`,video:out,joined:true,story:g.story,joinKey:key,drive:false});
+    toast("Full video ready in Finals")}
+  catch(e){toast("Couldn't join: "+String(e.message||e).replace(/^Error invoking remote method[^:]*: (Error: )?/,""))}
+  render();
+}
+function glab(g){return (g.story?`<span class="pill pk" style="margin-bottom:3px;display:inline-block">Story · part ${g.part||1}</span><br>`:"")+(g.hook&&g.reveal?`<b>${esc(g.hook)}</b>+ ${esc(g.reveal)}`:g.hook?`<b>${esc(g.hook)}</b>Hook`:`<b>${esc(g.reveal)}</b>Reveal`)}
 function productInfo(pr){
   return {name:pr.name,from:pr.from,description:pr.desc||"",niche:pr.niche||"",variation:pr.variation||"",supplier:pr.supplier||"",
     instagram:(pr.social||{}).instagram||"",tiktok:(pr.social||{}).tiktok||"",color:pr.color||"",
@@ -947,7 +1003,7 @@ function gTile(g){
   let act;
   if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
-  else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
+  else if(g.st==="ready")act=`${g.video?`<button class="btn cy" data-a="further" data-id="${g.id}">✨ Generate further clips</button>`:""}<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling, then moves to Finals"}</div>`;
   return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}${pastFixes(g)}</div>`;
@@ -961,7 +1017,7 @@ function render(){
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
   const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
-  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"");counts();save();jobsUI();
+  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&v==="generations"?nextModal():"");counts();save();jobsUI();
   for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
@@ -1013,7 +1069,7 @@ $("#main").addEventListener("click",e=>{
     case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
     case"dropno":S.ui.dropAsk=null;break;
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
-    case"approve":gen.st="upscaling";toast("Moved to Finals · upscaling");later(2500,()=>{gen.st="final";gen.drive=false});break;
+    case"approve":gen.st="upscaling";toast("Moved to Finals · upscaling");later(2500,()=>{gen.st="final";gen.drive=false;checkJoin(gen)});break;
     case"unfinal":gen.st="ready";break;
     case"send":sendFinal(gen);return;
     case"findel":S.ui.finDel=id;break;
@@ -1047,6 +1103,10 @@ $("#main").addEventListener("click",e=>{
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
     case"watch":S.ui.view=id;S.ui.viewVid=null;break;
+    case"further":{S.ui.nextFor=id;const g=S.gens.find(x=>x.id===id);if(g&&!(g.nextIdeas||[]).length&&!nextBusy(g))askNext(g);break}
+    case"nextclose":S.ui.nextFor=null;break;
+    case"nextmore":{const g=S.gens.find(x=>x.id===S.ui.nextFor);if(g)askNext(g);break}
+    case"nextgo":{const g=S.gens.find(x=>x.id===S.ui.nextFor);if(!g)break;const picks=(g.nextIdeas||[]).filter(i=>i.sel);const base=Math.max(g.part||1,...S.gens.filter(x=>x.story&&x.story===(g.story||g.id)).map(x=>x.part||1));picks.forEach((it,k)=>{genPart(g,it,base+1+k);it.sel=false;it.used=true});S.ui.nextFor=null;toast(`Generating ${picks.length} part${picks.length===1?"":"s"}`);break}
     case"analyze":{const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(MODE!=="live"){toast("The breakdown comes from Claude in Live mode");return}if(x){x.analysis=null;analyzeClip(x)}break}
     case"viewver":S.ui.viewVid=b.dataset.v;break;
     case"sugg":{const el=$("#"+b.dataset.for);if(el){el.value=b.dataset.v;el.dispatchEvent(new Event("input"))}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
@@ -1084,6 +1144,7 @@ $("#main").addEventListener("click",e=>{
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
+  if(t.dataset&&t.dataset.nextsel!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);if(g&&g.nextIdeas[+t.dataset.nextsel])g.nextIdeas[+t.dataset.nextsel].sel=t.checked;render();return}
   if(t.dataset&&t.dataset.finsel){const id=t.dataset.finsel;S.ui.finSel=S.ui.finSel||[];S.ui.finSel=t.checked?[...S.ui.finSel,id]:S.ui.finSel.filter(x=>x!==id);render();return}
   if(t.dataset&&t.dataset.relink&&t.files&&t.files.length){
     const kind=t.dataset.relink,list=kind==="hook"?S.hooks:S.reveals,files=[...t.files];
@@ -1111,7 +1172,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip||S.ui.nextFor)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;S.ui.nextFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 document.addEventListener("error",e=>{const v=e.target;if(!v||v.tagName!=="VIDEO"||!v.closest(".lcard"))return;const pl=v.parentNode;if(pl.querySelector(".playerr"))return;pl.insertAdjacentHTML("beforeend",'<span class="note playerr" style="position:absolute;inset:auto 4px 6px;text-align:center;z-index:3;font-size:10px;color:var(--bad)">Can\'t play this file</span>')},true);
 // Drag hook/reveal cards to reorder them (order is saved).
 let DRAG=null;
