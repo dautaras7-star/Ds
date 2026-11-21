@@ -37,8 +37,12 @@ Use Claude in Chrome (the user's Chrome, logged into their burner Instagram). Op
 For each reel, check the account: its newest post is at most `lastPostDays` days old (skip inactive accounts), at most `maxPosts` posts, at least `minFollowers` followers, and the reel's views at least `minX` times the account's usual views (median of its other reels).
 Also read the reel's share count (the paper-plane number; saves are private, ignore them). Keep only reels whose shares are at least `minSharePct`% of likes. If a reel hides its share count, don't reject it for that, but note `shares: "hidden"`.
 For reels that pass, open the comments and judge buying demand: share of comments asking where to buy, price, link, "need this", "ordered". `Low` < 15%, `Medium` 15–35%, `High` > 35%. Keep only reels at or above `criteria.demand`.
-Identify the product and find it on AliExpress (price). Stop at `count` finds or when the time limit is reached, whichever comes first.
-Result: `{"ok":true,"finds":[{"url","handle","posts","followers","views","x","likes","comments","shares","sharePct","posted","lastPost","product","supplier","hook","reveal","demand","buyPct","quotes":[3 real comments],"thumb"}]}`
+Identify the product and find it on AliExpress (price). Different products only. Give every find a `base`: the plain product type with no theme, audience or design (e.g. "mug", "star projector", "massage gun", "car phone mount"). Variations of the same base are the SAME product: a book-lover mug, a Harry Potter mug and a princess mug are all `base: "mug"`.
+- Return at most ONE find per `base` in a run (keep the strongest one).
+- `known` lists base products the user has already seen, picked or skipped. Skip anything whose base matches one of them, including variations and re-themes.
+- Aim for a spread of different categories (home, gadgets, toys, pets, beauty, car, kitchen…), not five of one kind.
+Stop at `count` finds or when the time limit is reached, whichever comes first.
+Result: `{"ok":true,"finds":[{"url","handle","posts","followers","views","x","likes","comments","shares","sharePct","posted","lastPost","product","base","supplier","hook","reveal","demand","buyPct","quotes":[3 real comments],"thumb"}]}`
 `x` is a string like `"124×"`. `lastPost` is like `"1 day ago"`. `thumb` is a screenshot or cover image of the reel.
 
 ### `names`: brand name ideas

@@ -341,7 +341,7 @@ products(){
   </form>
   ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Shares at least ${c.minSharePct??5}% of likes. Checking each account: last post within ${c.lastPostDays??2} days, ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
   ${S.finds.length?S.finds.map(f=>`<article class="vrow panel"><a class="player" href="${ig(f)}" target="_blank" rel="noopener" style="${bg(f)}" title="Open on Instagram"><span class="play"></span><span class="ext">IG ↗</span></a>
-    <div style="min-width:0"><div class="eyebrow">@${esc(f.handle)} · ${esc(f.posted)}</div><h3><a class="title-link" href="${ig(f)}" target="_blank" rel="noopener">${esc(f.product)}</a></h3><div class="note">${esc(f.supplier)}</div>
+    <div style="min-width:0"><div class="eyebrow">@${esc(f.handle)} · ${esc(f.posted)}${f.base?` · <span style="color:var(--accent)">${esc(f.base)}</span>`:""}</div><h3><a class="title-link" href="${ig(f)}" target="_blank" rel="noopener">${esc(f.product)}</a></h3><div class="note">${esc(f.supplier)}</div>
       <div class="checks">${f.lastPost?`<span class="ck">last post ${esc(f.lastPost)}</span>`:""}<span class="ck">${f.posts} posts</span><span class="ck">${esc(f.followers)} followers</span><span class="ck">${f.x} usual views</span></div>
       <dl class="why"><dt>Hook</dt><dd>${esc(f.hook)}</dd><dt>Reveal</dt><dd>${esc(f.reveal)}</dd></dl>
       <div class="demand">Demand: <span class="lvl ${f.demand}">${f.demand}</span> · ${f.buyPct}% of comments want to buy it${f.quotes.map(q=>`<q>${esc(q)}</q>`).join("")}</div></div>
@@ -582,12 +582,18 @@ if(window.studio)window.studio.onJobEvent(m=>{
   if(!r.ok)toast(r.error||"Job failed");
   render();
 });
+const norm=t=>String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\b(the|a|an|for|with|mini|new)\b/g," ").replace(/s\b/g,"").replace(/\s+/g," ").trim();
+function baseOf(f){return f.base||f.productType||f.product||""}
+function knownProducts(){
+  const out=[...(S.seen||[]),...S.finds.map(baseOf),...S.products.map(p=>p.base||p.from)];
+  return [...new Set(out.filter(Boolean))];
+}
 function askNames(p){p._namesBusy=true;const id=runJob("names","Name ideas · "+p.from,{product:p.from,variation:p.variation,niche:p.niche,description:p.desc||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path),known:p.nameOpts||[]},r=>{p._namesBusy=false;if(r.ok){const fresh=(r.names||[]).filter(n=>!p.nameOpts.includes(n));p.nameOpts=[...p.nameOpts,...fresh]}});if(JOBS[id])JOBS[id].pid=p.id}
 function namesBtn(p,label){return p._namesBusy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Suggesting names…</span>`:`<button class="btn" data-a="morenames">${label}</button>`}
 function ownName(p){return `<label class="f" style="margin-top:12px">Or type your own name<div class="row" style="flex-wrap:nowrap"><input type="text" id="ownname" placeholder="e.g. Shot Garage" value="${p.name&&!(p.nameOpts||[]).includes(p.name)?esc(p.name):""}"><button class="btn pri" data-a="ownnamesave">Use this name</button></div></label>`}
 function refsOf(pr){return [pr.art&&pr.art.collage,pr.art&&pr.art.box,...(pr.photos||[])].filter(Boolean)}
 const LIVE={
-  scroll(){S.ui.scrolling=true;runJob("scroll",`Scrolling Instagram · up to ${S.criteria.count||5} products · ${S.criteria.minutes||20} min`,{criteria:S.criteria,count:S.criteria.count||5,maxMinutes:S.criteria.minutes||20},r=>{S.ui.scrolling=false;if(r.ok){(r.finds||[]).forEach(f=>S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));toast(`Found ${(r.finds||[]).length} product(s)`)}})},
+  scroll(){S.ui.scrolling=true;runJob("scroll",`Scrolling Instagram · up to ${S.criteria.count||5} products · ${S.criteria.minutes||20} min`,{criteria:S.criteria,count:S.criteria.count||5,maxMinutes:S.criteria.minutes||20,known:knownProducts()},r=>{S.ui.scrolling=false;if(r.ok){const have=new Set(knownProducts().map(norm));let added=0,dup=0;(r.finds||[]).forEach(f=>{const b=norm(baseOf(f));if(have.has(b)){dup++;return}have.add(b);added++;S.finds.unshift({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]})});toast(`Found ${added} new product${added===1?"":"s"}${dup?` · skipped ${dup} repeat${dup===1?"":"s"}`:""}`)}})},
   stopscroll(){Object.keys(JOBS).filter(k=>JOBS[k].type==="scroll").forEach(k=>window.studio.cancelJob(k));S.ui.scrolling=false},
   morenames(){askNames(P(S.ui.prod))},
   kitgen(b){kitRun(P(S.ui.prod),b.dataset.k)},
@@ -880,8 +886,8 @@ $("#main").addEventListener("click",e=>{
   switch(a){
     case"scroll":S.ui.scrolling=true;later(3500,()=>{S.ui.scrolling=false;const c=S.criteria;S.finds.unshift({id:uid(),img:"",bg:G("#103a40","#0b0b10"),handle:"mugmagic.shop",posts:Math.min(c.maxPosts,9),followers:Math.max(c.minFollowers,3100).toLocaleString("en-US"),views:"2.2M",x:Math.max(c.minX,183)+"×",likes:"130K",comments:"1.9K",posted:"today",product:"Self-stirring mug",supplier:"AliExpress · $6.40",hook:"My coworkers think I'm a wizard",reveal:"Press button, whirlpool forms",demand:"High",buyPct:44,quotes:["Where do I get one?","Perfect gift for my dad","Link in bio?"]});toast("Found 1 product that passes your rules")});break;
     case"stopscroll":S.ui.scrolling=false;break;
-    case"skip":S.finds=S.finds.filter(f=>f.id!==id);toast("Skipped. I'll find a replacement on the next scroll");break;
-    case"pick":{const f=S.finds.find(x=>x.id===id);S.finds=S.finds.filter(x=>x.id!==id);const np={id:uid(),from:f.product,url:f.url||"",img:f.img,bg:f.bg,variation:"",niche:"",nameOpts:[],name:"",color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:f.supplier,handles:""};S.products.unshift(np);toast("Added to My products");break}
+    case"skip":{const f=S.finds.find(x=>x.id===id);if(f){S.seen=S.seen||[];S.seen.push(baseOf(f))}}S.finds=S.finds.filter(f=>f.id!==id);toast("Skipped. I'll find a replacement on the next scroll");break;
+    case"pick":{const f=S.finds.find(x=>x.id===id);S.finds=S.finds.filter(x=>x.id!==id);const np={id:uid(),from:f.product,base:f.base||"",url:f.url||"",img:f.img,bg:f.bg,variation:"",niche:"",nameOpts:[],name:"",color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},supplier:f.supplier,handles:""};S.products.unshift(np);toast("Added to My products");break}
     case"open":S.ui.prod=id;location.hash="my";break;
     case"closeprod":S.ui.prod=null;break;
     case"delprod":S.products=S.products.filter(x=>x.id!==id);S.gens=S.gens.filter(g=>g.pid!==id);S.ui.prod=null;toast("Product removed");break;
