@@ -245,6 +245,44 @@ async function readVideo(src) {
   return fs.readFileSync(from);
 }
 
+function sniffImage(buf) {
+  if (buf.length > 8 && buf.readUInt32BE(0) === 0x89504E47) return ['png', 'image/png'];
+  if (buf.length > 3 && buf[0] === 0xFF && buf[1] === 0xD8) return ['jpg', 'image/jpeg'];
+  if (buf.length > 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return ['webp', 'image/webp'];
+  if (buf.length > 6 && buf.toString('latin1', 0, 3) === 'GIF') return ['gif', 'image/gif'];
+  return null;
+}
+// Brand kit images: save to Documents/Viral Studio/Finals/<product>/Brand kit, or upload to Google Photos.
+ipcMain.handle('image:export', async (_e, { src, product, name }) => {
+  const buf = await readVideo(src); const t = sniffImage(buf);
+  if (!t) throw new Error("This isn't an image file.");
+  const dir = path.join(exportDir(), clean(product), 'Brand kit'); fs.mkdirSync(dir, { recursive: true });
+  let file = path.join(dir, `${clean(name)}.${t[0]}`), i = 2;
+  while (fs.existsSync(file)) file = path.join(dir, `${clean(name)} (${i++}).${t[0]}`);
+  fs.writeFileSync(file, buf); log('saved image ' + file);
+  shell.showItemInFolder(file);
+  return file;
+});
+ipcMain.handle('gp:uploadImage', async (_e, { src, product, name }) => {
+  const buf = await readVideo(src); const t = sniffImage(buf);
+  if (!t) throw new Error("This isn't an image file.");
+  const token = await gpToken();
+  const up = await net.fetch('https://photoslibrary.googleapis.com/v1/uploads', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream', 'X-Goog-Upload-Content-Type': t[1], 'X-Goog-Upload-Protocol': 'raw', 'X-Goog-Upload-File-Name': `${clean(name)}.${t[0]}` },
+    body: buf
+  });
+  const uploadToken = await up.text();
+  if (!up.ok) throw new Error('Google Photos upload failed: ' + up.status);
+  let albumId = ''; try { albumId = await gpAlbum(token, clean(product)); } catch (err) { log('album: ' + err); }
+  const body = { newMediaItems: [{ description: name, simpleMediaItem: { fileName: `${clean(name)}.${t[0]}`, uploadToken } }] };
+  if (albumId) body.albumId = albumId;
+  const j = await gpApi('https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate', token, body);
+  const r = (j.newMediaItemResults || [])[0] || {};
+  if (r.status && r.status.code) throw new Error('Google Photos: ' + (r.status.message || 'item not created'));
+  log('gphotos image ' + name);
+  return { url: (r.mediaItem && r.mediaItem.productUrl) || 'https://photos.google.com/' };
+});
 ipcMain.handle('gp:upload', async (_e, { src, product, name }) => {
   let buf = await readVideo(src);
   if (!sniffVideo(buf)) throw new Error("This clip isn't a video file.");
