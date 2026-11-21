@@ -283,8 +283,17 @@ function runFfmpeg(args) {
     c.on('close', (code) => code === 0 ? resolve(err) : reject(new Error('ffmpeg failed: ' + err.split('\n').slice(-3).join(' ').slice(0, 300))));
   });
 }
+function ffmpegInfo(file) {
+  return new Promise((resolve) => {
+    const bin = ffmpegPath(); if (!bin) return resolve('');
+    const c = spawn(bin, ['-hide_banner', '-i', file], { windowsHide: true }); let err = '';
+    c.stderr.on('data', (d) => { err += d.toString(); });
+    c.on('error', () => resolve(err));
+    c.on('close', () => resolve(err));
+  });
+}
 async function probe(file) {
-  const out = await runFfmpeg(['-hide_banner', '-i', file]).catch((e) => String(e.message));
+  const out = await ffmpegInfo(file);
   const fps = parseFloat((out.match(/, ([\d.]+) fps/) || [])[1]) || 30;
   return { audio: /Stream #.*Audio:/.test(out), fps };
 }
