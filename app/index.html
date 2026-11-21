@@ -223,6 +223,11 @@ ol.steps-list li{margin:4px 0}
 .vid.selon .player{outline:2px solid var(--accent2);outline-offset:2px}
 .chip.sm{padding:3px 10px;font-size:12px}
 .sugg{gap:6px}
+.lcard .grip{position:absolute;top:6px;right:8px;color:var(--dim);font-size:16px;cursor:grab;user-select:none;z-index:3}
+.lcard[draggable="true"]{cursor:grab}
+.lcard.dragging{opacity:.35}
+.lcard.dropbefore{box-shadow:-4px 0 0 var(--accent2)}
+.lcard.dropafter{box-shadow:4px 0 0 var(--accent2)}
 .soonbox{max-width:620px}
 .soonbox ul{color:var(--muted);padding-left:18px}
 
@@ -570,7 +575,7 @@ function libCard(x,kind,mode){
   const c=S.concept,sel=mode==="pick"&&(kind==="hook"?c.hooks:c.reveals).includes(x.id);
   const csrc=CLIPS[x.id]||(x.clip?media(x.clip):"");const mediaEl=csrc?`<video src="${esc(csrc)}" muted loop autoplay playsinline preload="auto" disablepictureinpicture></video>`:"";
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
-  return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} style="grid-template-columns:110px 1fr">
+  return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} draggable="true" data-drag="${x.id}" data-dragkind="${kind}" style="grid-template-columns:110px 1fr"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span>
     <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<label style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:2;cursor:pointer;font-size:11px;color:var(--muted);padding:8px">${x.clipName?"Clip missing.<br>Click to add":"No clip.<br>Click to add"}<input type="file" accept="video/*" data-up="${x.id}" style="display:none"></label>`}</div>
     <div style="min-width:0">${name}<p>${esc(x.desc)}</p><div class="fits">${x.own?`<span class="pill pk">${x.full?"My full video":"My own clip"}</span>`:`Fits: ${esc(x.fits)}`}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
       ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}
@@ -624,10 +629,18 @@ const LIVE={
     }));
     S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${n} video${n>1?"s":""}`);location.hash="generations";
   },
-  fixsend(b,id){const g=S.gens.find(x=>x.id===id);const note=$("#fx").value.trim();if(!note){toast("Write what should change");return}const pr=P(g.pid);g.fix=note;g.st="fixing";S.ui.fixOpen=null;
-    g.started=Date.now();g.stuck=false;const hx=S.hooks.find(h=>h.name===g.hook),rx=S.reveals.find(h=>h.name===g.reveal);
-    g.jobId=runJob("fix",`Fix · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:"",clip:hx?hx.clip||"":""}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:"",clip:rx?rx.clip||"":""}:null,changes:g.changes||{},previous_job_id:g.job_id||"",engine:g.engine,source:pr.url||"",note,previous_prompt:g.prompt||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});S.credits+=r.credits||0}else g.st="ready"})},
+  fixsend(b,id){const g=S.gens.find(x=>x.id===id);const note=$("#fx").value.trim();if(!note){toast("Write what should change");return}const pr=P(g.pid);
+    g.history=g.history||[];if(!g.history.length&&g.video)g.history.push({v:1,video:g.video,prompt:g.prompt||"",job_id:g.job_id||"",note:"",at:Date.now()});
+    g.fix=note;g.st="fixing";S.ui.fixOpen=null;g.started=Date.now();g.stuck=false;
+    const hx=S.hooks.find(h=>h.name===g.hook),rx=S.reveals.find(h=>h.name===g.reveal);
+    g.jobId=runJob("fix",`Fix v${g.history.length+1} · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:"",clip:hx?hx.clip||"":"",spec:hx?hx.spec||null:null}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:"",clip:rx?rx.clip||"":"",spec:rx?rx.spec||null:null}:null,
+      changes:g.changes||{},engine:g.engine,source:pr.url||"",note,
+      resume_session:g.session||"",previous_video:g.video||"",previous_prompt:g.prompt||"",previous_job_id:g.job_id||"",
+      history:g.history.map(h=>({version:h.v,note:h.note,prompt:h.prompt,job_id:h.job_id})),
+      maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});if(r._session)g.session=r._session;
+        g.history.push({v:g.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note,analysis:r.analysis||"",method:r.method||"",at:Date.now()});S.credits+=r.credits||0}
+      else g.st="ready"})},
   approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling");
     g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id,video:g.video||"",method:(SETTINGS&&SETTINGS.upscaleMethod)||"web",settings:{model:(SETTINGS&&SETTINGS.upscaleModel)||"Topaz Starlight Precise",resolution:(SETTINGS&&SETTINGS.upscaleRes)||"1080p",fps:(SETTINGS&&SETTINGS.upscaleFps)||"60 FPS"},useChrome:((SETTINGS&&SETTINGS.upscaleMethod)||"web")==="web"},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.upSpec=r.settings_used||"";g.drive=false;toast("Upscaled · in Finals")}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
   _driveall(){}
@@ -802,7 +815,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
     if(!window.studio){toast("Live mode only works in the desktop app");return}
     const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null};
     g.started=Date.now();g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
   }else{S.credits+=72;later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
   toast(`Generating ${isHook?"hook":"reveal"} with ${engine}. See Generations`);
 }
@@ -877,7 +890,9 @@ function viewModal(){
   const pr=P(g.pid);
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="Watch video" data-a="closeview"><div class="modal-box" style="width:auto;max-width:min(560px,100%);align-items:center" data-stop="1">
     <div class="row" style="justify-content:space-between;width:100%;flex-wrap:nowrap"><div><div class="eyebrow">${esc(pr?pr.name:"")} · ${esc(g.engine||"")}</div><h2 style="font-size:18px;margin-top:2px">${esc([g.hook,g.reveal].filter(Boolean).join(" + "))}</h2></div><button class="btn" data-a="closeview" aria-label="Close">✕</button></div>
-    <video src="${esc(media(g.video))}" controls autoplay playsinline style="max-height:calc(100vh - 220px);max-width:100%;aspect-ratio:9/16;border-radius:12px;background:#000"></video>
+    <video src="${esc(media(S.ui.viewVid||g.video))}" controls autoplay playsinline style="max-height:calc(100vh - 220px);max-width:100%;aspect-ratio:9/16;border-radius:12px;background:#000"></video>
+    ${(g.history||[]).length>1?`<div class="opts" style="width:100%">${g.history.map(h=>`<button class="chip" aria-pressed="${h.video===S.ui.viewVid||(!S.ui.viewVid&&h.video===g.video)}" data-a="viewver" data-v="${esc(h.video)}" title="${esc(h.note||"Original")}">v${h.v}${h.note?" · "+esc(h.note.slice(0,30)):" · original"}</button>`).join("")}</div>`:""}
+    ${(g.history||[]).slice(-1)[0]&&g.history.slice(-1)[0].analysis?`<details style="width:100%"><summary class="note" style="cursor:pointer">What Claude saw in the previous version</summary><p class="note" style="white-space:pre-wrap">${esc(g.history.slice(-1)[0].analysis)}</p></details>`:""}
     ${g.prompt?`<details style="width:100%"><summary class="note" style="cursor:pointer">Prompt used</summary><pre style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:200px;overflow:auto">${esc(g.prompt)}</pre></details>`:""}
   </div></div>`;
 }
@@ -895,12 +910,12 @@ async function sendFinal(g){
 function gTile(g){
   const busy=["generating","fixing","upscaling"].includes(g.st)&&!g.stuck;const st=busy?`<div class="upov"><span class="spin" style="width:30px;height:30px;border-width:3px"></span><b>${g.st==="fixing"?"Fixing…":g.st==="upscaling"?"Upscaling…":"Generating…"}</b><span data-job="${esc(g.jobId||"")}">${esc(g.jobId&&JOBS[g.jobId]?JOBS[g.jobId].progress:"")}</span></div>`:g.stuck?'<span class="status fix">Didn\'t come back</span>':"";
   let act;
-  if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
+  if(S.ui.fixOpen===g.id)act=`${(g.history||[]).filter(h=>h.note).length?`<div class="note">Earlier fixes (Claude keeps them):${g.history.filter(h=>h.note).map(h=>`<div>v${h.v}: ${esc(h.note)}</div>`).join("")}</div>`:""}<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
+  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}</div>`;
 }
 
 function route(){let h=(location.hash||"#products").slice(1);if(h==="library")h="concepts";return V[h]&&h!=="product"?h:"products"}
@@ -994,7 +1009,8 @@ $("#main").addEventListener("click",e=>{
     case"saveprules":p.playbook=$("#pplaybook").value;toast("Rules saved for "+(p.name||p.from));break;
     case"savenotes":p.notes=$("#pnotes").value;toast("Product knowledge saved");break;
     case"rmnotefile":(p.noteFiles||[]).splice(+b.dataset.i,1);break;
-    case"watch":S.ui.view=id;break;
+    case"watch":S.ui.view=id;S.ui.viewVid=null;break;
+    case"viewver":S.ui.viewVid=b.dataset.v;break;
     case"sugg":{const el=$("#"+b.dataset.for);if(el){el.value=b.dataset.v;el.dispatchEvent(new Event("input"))}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
     case"suggother":{const el=$("#"+b.dataset.for);if(el){el.value="";el.focus()}b.parentNode.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b));return}
     case"suggmore":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(MODE!=="live"){toast("Options come from Claude in Live mode");return}askSugg(pr,x);break}
@@ -1059,6 +1075,14 @@ $("#main").addEventListener("change",async e=>{
 });
 $("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 document.addEventListener("error",e=>{const v=e.target;if(!v||v.tagName!=="VIDEO"||!v.closest(".lcard"))return;const pl=v.parentNode;if(pl.querySelector(".playerr"))return;pl.insertAdjacentHTML("beforeend",'<span class="note playerr" style="position:absolute;inset:auto 4px 6px;text-align:center;z-index:3;font-size:10px;color:var(--bad)">Can\'t play this file</span>')},true);
+// Drag hook/reveal cards to reorder them (order is saved).
+let DRAG=null;
+$("#main").addEventListener("dragstart",e=>{const c=e.target.closest&&e.target.closest(".lcard[data-drag]");if(!c)return;if(e.target.closest("input,textarea,select"))return;DRAG={id:c.dataset.drag,kind:c.dataset.dragkind};c.classList.add("dragging");e.dataTransfer.effectAllowed="move";try{e.dataTransfer.setData("text/plain",DRAG.id)}catch(_){}});
+$("#main").addEventListener("dragend",()=>{document.querySelectorAll(".lcard.dragging,.lcard.dropbefore,.lcard.dropafter").forEach(c=>c.classList.remove("dragging","dropbefore","dropafter"));DRAG=null});
+$("#main").addEventListener("dragover",e=>{if(!DRAG)return;const c=e.target.closest&&e.target.closest(".lcard[data-drag]");if(!c||c.dataset.dragkind!==DRAG.kind||c.dataset.drag===DRAG.id)return;e.preventDefault();const r=c.getBoundingClientRect(),after=e.clientX>r.left+r.width/2;document.querySelectorAll(".lcard.dropbefore,.lcard.dropafter").forEach(x=>x.classList.remove("dropbefore","dropafter"));c.classList.add(after?"dropafter":"dropbefore")});
+$("#main").addEventListener("drop",e=>{if(!DRAG)return;const c=e.target.closest&&e.target.closest(".lcard[data-drag]");if(!c||c.dataset.dragkind!==DRAG.kind)return;e.preventDefault();
+  const list=DRAG.kind==="hook"?S.hooks:S.reveals,from=list.findIndex(x=>x.id===DRAG.id);if(from<0)return;const [item]=list.splice(from,1);
+  let to=list.findIndex(x=>x.id===c.dataset.drag);const r=c.getBoundingClientRect();if(e.clientX>r.left+r.width/2)to++;list.splice(to<0?list.length:to,0,item);DRAG=null;render()});
 boot();
 </script>
 </body>

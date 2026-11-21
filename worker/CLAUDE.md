@@ -97,8 +97,13 @@ Apply every non-empty field in `changes`: in Seedance, write them into the promp
 Always estimate cost first; if over `maxCredits`, stop with an error.
 Result: `{"ok":true,"video":"<url>","job_id":"<higgsfield job id>","duration":"0:15","credits":n,"prompt":"<prompt used>"}`
 
-### `fix`: regenerate with the user's note
-Input: same as `generate` plus `note` and `previous_prompt`. Change only what the note asks. Same result shape as `generate`.
+### `fix`: change the clip you already made, nothing more
+Input: same as `generate` plus `note` (what to change now), `previous_video`, `previous_prompt`, `previous_job_id`, `history` (every earlier version with its note and prompt), and `resume_session`. When `resume_session` is set you are continuing the same conversation that made this clip, so use what you remember.
+Do this in order:
+1. **Look at the previous video first.** Download `previous_video` into `media/`. If `ffmpeg` is available, pull ~1 frame per second (`ffmpeg -i in.mp4 -vf fps=1,scale=360:-2 media/fix-%02d.jpg`) and look at the frames; if it has speech, transcribe it (whisper if installed). Write down shot by shot what is actually in it: people, setting, action, product, dialogue, problems.
+2. **Start from `previous_prompt` word for word.** Change only what `note` asks. Keep every earlier fix from `history`, and keep the script, people, setting, shots, length, references, model and settings unless the note says otherwise. Never write a brand-new script.
+3. **Choose the cheapest faithful method:** for a local change (color, an object, a detail, one line of text on the product, small action), prefer editing the previous video: Seedance 2.5 `mode: "video_edit"` with the previous video as `video_references`, or Genjutsu replace-object. For structural changes (timing, shots, dialogue, people), regenerate with the edited prompt and the same references and settings.
+Result: same as `generate` plus `"analysis"` (what you saw in the previous version, short) and `"method"` (`"edit"` or `"regenerate"`). `prompt` must be the full new prompt.
 
 ### `upscale`
 Input: `job_id` (Higgsfield video job id), `video` (the clip's current file/url), `method` (`web` | `api`), `settings` (`{model, resolution, fps}`, default Topaz Starlight Precise · 1080p · 60 FPS).

@@ -330,6 +330,9 @@ ipcMain.handle('job:start', (e, job) => {
   try { fs.unlinkSync(resultPath); } catch (_) { /* no old result */ }
 
   const args = ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', s.permissionMode];
+  // A fix continues the Claude Code session that made the clip, so Claude remembers the script and earlier fixes.
+  if (job.input && /^[A-Za-z0-9-]{8,}$/.test(job.input.resume_session || '')) args.push('--resume', job.input.resume_session);
+  let sessionId = '';
   if (s.allowedTools.trim()) args.push('--allowedTools', ...s.allowedTools.trim().split(/\s+/));
   // Jobs that browse Instagram, TikTok, the web or the Higgsfield website need the user's Chrome.
   const chromeJobs = ['scroll', 'findclips', 'handles', 'usernames', 'competitors', 'recover'];
@@ -341,6 +344,7 @@ ipcMain.handle('job:start', (e, job) => {
   const { child, stderr } = runClaude(args, prompt, (line) => {
     try {
       const evt = JSON.parse(line);
+      if (evt.session_id) sessionId = evt.session_id;
       const t = lastText(evt);
       if (t) send({ kind: 'progress', text: t });
     } catch (_) { /* non-JSON line */ }
@@ -362,6 +366,7 @@ ipcMain.handle('job:start', (e, job) => {
       result = { ok: false, error: code === null ? 'Stopped.' : `Claude Code finished without a result${tail ? ': ' + tail : '.'}` };
     }
     log(`job ${id} end code=${code} ok=${result.ok}`);
+    if (sessionId) result._session = sessionId;
     send({ kind: 'done', result });
   });
   return { started: true };
