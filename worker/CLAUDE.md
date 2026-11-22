@@ -128,7 +128,12 @@ Result: same as `generate` plus `"analysis"` (what you saw in the previous versi
 
 ### `upscale`
 Input: `job_id` (Higgsfield video job id), `video` (the clip's current file/url), `method` (`web` | `api`), `settings` (`{model, resolution, fps}`, default Topaz Starlight Precise · 1080p · 60 FPS).
-- `method: "web"` (the user's exact settings): use Claude in Chrome on the Higgsfield website, where the user is logged in. Open Higgsfield's video upscale tool, pick the source video (it's in the user's Higgsfield history from `job_id`; otherwise download `video` into `media/` and upload it), set **Model = `settings.model`**, **Resolution = `settings.resolution`**, **Frame rate = `settings.fps`** exactly, start it, wait until it's done, then download the result into `media/` and return that path. Never silently use other settings: if one of them isn't available, stop and return `{"ok":false,"error":"<which setting is missing on the page>"}`. If you aren't logged in, return an error saying so.
+- **First, check for an existing upscale.** If this clip (`job_id`) was already upscaled on Higgsfield (an earlier attempt that never reached the app), don't upscale again: download that one and return it. This saves credits.
+- `method: "web"` (the user's exact settings): use Claude in Chrome on the Higgsfield website, where the user is logged in. Open Higgsfield's video upscale tool, pick the source video (it's in the user's Higgsfield history from `job_id`; otherwise download `video` into `media/` and upload it), set **Model = `settings.model`**, **Resolution = `settings.resolution`**, **Frame rate = `settings.fps`** exactly, start it, and as soon as it starts write `results/<id>.partial.json` with the upscale's job id (from the page URL or the asset). Wait until it's done (Starlight can take 10+ minutes; keep checking, don't give up early). Then get the file into `media/` in this order, stopping at the first that works:
+  1. Find the finished upscale with the Higgsfield MCP tools (`show_generations` / `show_medias` / `job_display`) and download its URL with `curl -L -o media/<name>.mp4 "<url>"`.
+  2. Copy the video's direct URL from the page (open the result, right-click/inspect the `<video>` source) and download it with curl.
+  3. Click the site's download button, then move the newest .mp4 from the user's Downloads folder (`%USERPROFILE%\\Downloads`) into `media/`.
+  If the upscale finished but every download attempt failed, still return `{"ok":true,"video":"<the direct https url of the upscaled video>", ...}`. A URL is fine; never return ok:false for an upscale that finished. Never silently use other settings: if one of them isn't available, stop and return `{"ok":false,"error":"<which setting is missing on the page>"}`. If you aren't logged in, return an error saying so.
 - `method: "api"`: use `upscale_video` with provider `topaz`, resolution `1080p`, aspect `9:16` (no model or FPS choice).
 Write `results/<id>.partial.json` with the upscale job id as soon as it starts, like generations.
 Result: `{"ok":true,"video":"<media path or url>","job_id":"<upscale job id or empty>","settings_used":"Topaz Starlight Precise · 1080p · 60 FPS"}`
@@ -146,7 +151,7 @@ Result: `{"ok":true,"items":[{"name":"short format name","desc":"how it works, s
 
 ### `recover`: bring back a video that finished on Higgsfield but never reached the app
 Input: `kind` (`generate` | `fix` | `upscale`), `higgsfield_job_id` (may be empty), `since` (ISO time the job started), `product`, `clip` (hook/reveal name), `engine`, `note`.
-If `higgsfield_job_id` is set, look that job up and wait for it to finish. Otherwise list the user's recent Higgsfield video generations created after `since` and pick the one that matches (engine, product, the hook/reveal, and the fix note). Don't generate anything new.
+If `higgsfield_job_id` is set, look that job up and wait for it to finish. For `kind: "upscale"`, look for the upscaled version (Topaz upscale, newer than `since`) of that clip: in the Higgsfield MCP tools, or with Claude in Chrome in the website's upscale history. Download it into `media/` as described under `upscale`. Otherwise list the user's recent Higgsfield video generations created after `since` and pick the one that matches (engine, product, the hook/reveal, and the fix note). Don't generate anything new.
 Result: same shape as `generate` (or `upscale` when `kind` is `upscale`). If nothing matches, `{"ok":false,"error":"No matching video found on Higgsfield after <time>."}`
 
 ### `balance`: remaining Higgsfield credits
