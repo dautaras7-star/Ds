@@ -804,7 +804,7 @@ function genPart(parent,idea,order){
     g.jobId=runJob("generate",`Part ${order} · ${idea.title}`,{product:productInfo(pr),hook:{name:idea.title,desc:idea.description,spec:{type:"Story part",description:idea.description,location:idea.setting||"",who:idea.people||"",length:idea.length||""}},reveal:null,engine:"Seedance",
       continuity:{part:order,previous_prompt:parent.prompt||"",previous_video:parent.video||"",same_people:true,new_setting:idea.setting||"",note:"Same people (faces, age, hair, clothes) as the previous part, in a different place. No start frame. Clearly a new scene."},
       changes:{},maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else S.gens=S.gens.filter(y=>y!==g)});
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else Object.assign(g,{st:"failed",err:r.error||"Unknown error"})});
   }else{addCredits(72);later(3000,()=>{g.st="ready";g.dur="0:06";g.cr=72;g.bg=pr&&pr.img||IMG.v3})}
 }
 async function checkJoin(g){
@@ -962,7 +962,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
     if(!window.studio){toast("Live mode only works in the desktop app");return}
     const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null,analysis:x.analysis||null};
     g.started=Date.now();g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else S.gens=S.gens.filter(y=>y!==g)});
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else Object.assign(g,{st:"failed",err:r.error||"Unknown error",retry:{x:{...x},kind,engine,changes}})});
   }else{addCredits(72);later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
   toast(`Generating ${isHook?"hook":"reveal"} with ${engine}`);return true;
 }
@@ -1067,6 +1067,7 @@ function gTile(g){
   if(S.ui.fixOpen===g.id)act=`<label class="note" for="fx">What should change?</label><textarea id="fx" placeholder="e.g. box logo blurry in shot 2, dad's lips don't match">${esc(g.fix||"")}</textarea><div class="row fill"><button class="btn" data-a="fixcancel">Cancel</button><button class="btn pri" data-a="fixsend" data-id="${g.id}">Regenerate</button></div>`;
   else if(S.ui.dropAsk===g.id)act=`<div class="confirm">Drop this clip for good?</div><div class="row fill"><button class="btn" data-a="dropno">Keep</button><button class="btn bad" data-a="dropyes" data-id="${g.id}">Drop</button></div>`;
   else if(g.st==="ready")act=`${g.video?`<button class="btn cy" data-a="further" data-id="${g.id}">✨ Generate further clips</button>`:""}<div class="acts"><button class="btn bad" data-a="drop" data-id="${g.id}">Drop</button><button class="btn cy" data-a="fix" data-id="${g.id}">Fix</button><button class="btn ok" data-a="approve" data-id="${g.id}">Approve</button></div>`;
+  else if(g.st==="failed")act=`<div class="confirm" style="color:var(--bad,#e5484d)">Didn't generate: ${esc(g.err||"")}</div><div class="row fill"><button class="btn" data-a="failrm" data-id="${g.id}">Remove</button>${g.retry?`<button class="btn pri" data-a="failretry" data-id="${g.id}">Try again</button>`:""}</div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling, then moves to Finals"}</div>`;
   return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}${pastFixes(g)}</div>`;
@@ -1190,6 +1191,8 @@ $("#main").addEventListener("click",e=>{
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
     case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;let ok=false;for(let i=0;i<r.spec.versions;i++)ok=genOne(r.x,r.kind,r.spec.engine,{})||ok;if(ok)location.hash="generations";render()});return;
     case"hfget":if(!window.studio){toast("Only works in the desktop app");return}getFromHiggsfield(gen);break;
+    case"failrm":S.gens=S.gens.filter(x=>x!==gen);break;
+    case"failretry":{const R=gen.retry;S.gens=S.gens.filter(x=>x!==gen);const keep=S.concept.pid;S.concept.pid=gen.pid;genOne(R.x,R.kind,R.engine,R.changes);S.concept.pid=keep;break}
     case"upagain":gen.upErr="";LIVE.approve(b,gen.id);break;
     case"upback":Object.assign(gen,{st:"ready",stuck:false,upErr:""});toast("Back in Generations");break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;

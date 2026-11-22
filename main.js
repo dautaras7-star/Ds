@@ -468,12 +468,14 @@ ipcMain.handle('job:start', (e, job) => {
 
   log(`job ${id} ${job.type} start`);
   send({ kind: 'progress', text: 'Starting Claude Code…' });
+  let lastMsg = '';
   const { child, stderr } = runClaude(args, prompt, (line) => {
     try {
       const evt = JSON.parse(line);
       if (evt.session_id) sessionId = evt.session_id;
       const t = lastText(evt);
-      if (t) send({ kind: 'progress', text: t });
+      if (t) { lastMsg = t; send({ kind: 'progress', text: t }); }
+      if (evt.type === 'result' && (evt.is_error || evt.subtype !== 'success')) lastMsg = String(evt.result || evt.error || evt.subtype || lastMsg);
     } catch (_) { /* non-JSON line */ }
   });
   running.set(id, child);
@@ -489,8 +491,9 @@ ipcMain.handle('job:start', (e, job) => {
     let result;
     try { result = JSON.parse(fs.readFileSync(resultPath, 'utf8')); }
     catch (_) {
-      const tail = stderr().trim().split('\n').slice(-2).join(' ').slice(0, 200);
+      const tail = (stderr().trim().split('\n').slice(-2).join(' ') || lastMsg).slice(0, 300);
       result = { ok: false, error: code === null ? 'Stopped.' : `Claude Code finished without a result${tail ? ': ' + tail : '.'}` };
+      log(`job ${id} no result. stderr: ${stderr().slice(-1500)} | last: ${lastMsg.slice(0, 500)}`);
     }
     log(`job ${id} end code=${code} ok=${result.ok}`);
     if (sessionId) result._session = sessionId;
