@@ -479,6 +479,34 @@ ipcMain.handle('job:start', (e, job) => {
     } catch (_) { /* non-JSON line */ }
   });
   running.set(id, child);
+  // Generations, fixes and upscales: as soon as Claude puts the finished video's URL in the partial file, the app downloads it itself.
+  let poll = null, finished = false;
+  if (['upscale', 'generate', 'fix', 'recover'].includes(job.type)) {
+    let busyDl = false;
+    poll = setInterval(async () => {
+      if (busyDl || running.get(id) !== child) return;
+      let part; try { part = JSON.parse(fs.readFileSync(path.join(ws(), 'results', id + '.partial.json'), 'utf8')); } catch (_) { return; }
+      const url = part && (part.video_url || part.video);
+      if (!url || !/^https?:\/\//.test(url)) return;
+      busyDl = true;
+      try {
+        send({ kind: 'progress', text: 'Finished on Higgsfield, downloading…' });
+        const res = await net.fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length < 10000) throw new Error('file too small');
+        fs.mkdirSync(path.join(ws(), 'media'), { recursive: true });
+        const rel = `media/${id}${job.type === 'upscale' || (job.input && job.input.kind === 'upscale') ? '-upscaled' : ''}.mp4`;
+        fs.writeFileSync(path.join(ws(), rel), buf);
+        if (!fs.existsSync(resultPath)) fs.writeFileSync(resultPath, JSON.stringify({ ...part, ok: true, video: rel, video_url: url, job_id: part.job_id || '', downloaded_by: 'app' }));
+        log(`job ${id} upscale downloaded by app (${buf.length} bytes)`);
+        clearInterval(poll); finished = true; running.delete(id);
+        let result; try { result = JSON.parse(fs.readFileSync(resultPath, 'utf8')); } catch (_) { result = { ok: true, video: rel }; }
+        if (sessionId) result._session = sessionId;
+        send({ kind: 'done', result }); killTree(child);
+      } catch (err) { log(`job ${id} app download failed: ${err}`); busyDl = false; }
+    }, 5000);
+  }
   const limit = job.input && +job.input.maxMinutes;
   if (limit > 0) setTimeout(() => { if (running.get(id) === child) { log(`job ${id} time limit`); killTree(child); } }, (limit + 3) * 60000);
   child.on('error', (err) => {
@@ -488,6 +516,8 @@ ipcMain.handle('job:start', (e, job) => {
   });
   child.on('close', (code) => {
     running.delete(id);
+    if (poll) clearInterval(poll);
+    if (finished) return;
     let result;
     try { result = JSON.parse(fs.readFileSync(resultPath, 'utf8')); }
     catch (_) {
