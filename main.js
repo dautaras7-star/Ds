@@ -477,7 +477,8 @@ ipcMain.handle('job:start', (e, job) => {
   if (s.allowedTools.trim()) args.push('--allowedTools', ...s.allowedTools.trim().split(/\s+/));
   // Jobs that browse Instagram, TikTok, the web or the Higgsfield website need the user's Chrome.
   const chromeJobs = ['scroll', 'findclips', 'handles', 'usernames', 'competitors', 'recover'];
-  if (s.useChrome && (chromeJobs.includes(job.type) || (job.input && job.input.useChrome))) args.push('--chrome');
+  const unlimWeb = ['generate', 'fix'].includes(job.type) && s.useUnlim !== false && job.input && /seedance/i.test(job.input.engine || 'Seedance');
+  if (s.useChrome && (chromeJobs.includes(job.type) || unlimWeb || (job.input && job.input.useChrome))) args.push('--chrome');
   const prompt = `You are the Viral Studio worker. Read CLAUDE.md in this folder, then do job ${id} (jobs/${id}.json). Write results/${id}.json exactly as CLAUDE.md describes, then stop.`;
 
   log(`job ${id} ${job.type} start`);
