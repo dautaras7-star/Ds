@@ -955,17 +955,26 @@ function askSugg(pr,x){
 }
 function askIdeas(pr,x){
   if(!pr||!x)return;if(MODE!=="live"||!window.studio){toast("Ideas come from Claude in Live mode");return}
-  if(Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id))return;
+  if(Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id&&j.rev==null))return;
   const old=((x.ideas||{})[pr.id])||[];
   const id=runJob("ideas4clip","Ideas · "+x.name+" · "+pr.name,{product:productInfo(pr),clip:{name:x.name,desc:x.desc,url:x.url||"",clip:x.clip||"",analysis:x.analysis||null},known:old.map(i=>i.title),count:3},r=>{if(r.ok){x.ideas=x.ideas||{};x.ideas[pr.id]=[...(r.ideas||[]),...old].slice(0,9)}});
   JOBS[id].cid=x.id;
 }
+function tweakIdea(pr,x,n,note){
+  const list=((x.ideas||{})[pr.id])||[],it=list[n];if(!it||!note)return;if(MODE!=="live"||!window.studio){toast("Only in Live mode");return}
+  const id=runJob("ideas4clip","Change idea · "+(it.title||x.name),{product:productInfo(pr),clip:{name:x.name,desc:x.desc,url:x.url||"",clip:x.clip||"",analysis:x.analysis||null},revise:{idea:it,note},count:1},r=>{if(r.ok&&r.ideas&&r.ideas[0]){const k=list.indexOf(it);if(k>=0)list[k]=r.ideas[0];toast("Idea changed")}});
+  JOBS[id].cid=x.id;JOBS[id].rev=n;
+}
 function ideasBlock(pr,x){
   if(!pr)return "";
-  const busy=Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id),list=((x.ideas||{})[pr.id])||[];
+  const busy=Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id&&j.rev==null),list=((x.ideas||{})[pr.id])||[];
   const btn=busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Claude is thinking up ideas for this ${S.ui.genKind==="hook"?"hook":"reveal"}…</span>`:`<button type="button" class="btn cy" data-a="ideasgo">💡 ${list.length?"More ideas":"Suggest full ideas for this "+(S.ui.genKind==="hook"?"hook":"reveal")}</button>`;
   return `<div class="panel" style="padding:12px;margin:10px 0;background:var(--panel2)"><div class="row" style="justify-content:space-between"><div class="note" style="margin:0">Claude studies what makes this ${S.ui.genKind==="hook"?"hook":"reveal"} work and rewrites it for ${esc(pr.name)}: script, people, background, length.</div>${btn}</div>
-    ${list.map((i,n)=>`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><b>${esc(i.title||"Idea "+(n+1))}</b>${i.length?` <span class="pill">${esc(i.length)}</span>`:""}<div style="font-size:13px;margin-top:4px">${esc(i.pitch||"")}</div>${i.next_clip?`<div class="note" style="margin-top:4px">Next clip: ${esc(i.next_clip)}</div>`:""}</div><button type="button" class="btn pri" data-a="ideause" data-i="${n}" style="flex:none">Use this idea</button></div></div>`).join("")}</div>`;
+    ${list.map((i,n)=>{const tw=Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id&&j.rev===n);return `<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0;flex:1"><b>${esc(i.title||"Idea "+(n+1))}</b>${i.length?` <span class="pill">${esc(i.length)}</span>`:""}
+      <textarea id="idea-p-${n}" data-ideaedit="${n}" data-k="pitch" style="margin-top:6px;min-height:64px;font-size:13px">${esc(i.pitch||"")}</textarea>
+      ${i.next_clip?`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:4px;align-items:flex-start"><div class="note" style="margin:0;flex:1">Next clip: ${esc(i.next_clip)}</div><button type="button" class="btn" data-a="ideanonext" data-i="${n}" style="padding:2px 8px;font-size:12px;flex:none" title="Only this clip, no next clip">✕ No next clip</button></div>`:`<div class="note" style="margin-top:4px">Only this clip, no next clip.</div>`}
+      ${tw?`<div class="scrolling" style="font-size:12px;margin-top:6px"><span class="spin"></span>Claude is changing this idea…</div>`:`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:6px"><input type="text" id="idea-t-${n}" placeholder="Change something, e.g. no beers, only kids, make it 4s" style="font-size:13px"><button type="button" class="btn" data-a="ideatweak" data-i="${n}" style="flex:none">Change</button></div>`}
+      </div><button type="button" class="btn pri" data-a="ideause" data-i="${n}" style="flex:none">Use this idea</button></div></div>`}).join("")}</div>`;
 }
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
@@ -1171,10 +1180,12 @@ $("#main").addEventListener("click",e=>{
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
     case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x&&genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"very close",next_clip:S.ui.genNext||""}))location.hash="generations";S.ui.genFor=null;break}
     case"ideasgo":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);askIdeas(pr,x);break}
-    case"ideause":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+b.dataset.i];if(!it)return;
+    case"ideause":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+b.dataset.i];if(!it)return;const ed=$("#idea-p-"+b.dataset.i);if(ed&&ed.value.trim()!==(it.pitch||"")){it.pitch=ed.value.trim();it.edited=true}
       const set=(id,v)=>{const el=$("#"+id);if(el)el.value=v||""};set("gq-people",it.people);set("gq-bg",it.background);set("gq-script",it.script);set("gq-mood",it.mood);set("gq-len",secs(it.length));
-      set("gq-other",[it.pitch?"Idea: "+it.pitch:"",it.shots||"",it.other||""].filter(Boolean).join("\n"));const c=$("#gq-close");if(c)c.value="loose";
+      set("gq-other",[it.pitch?"Idea: "+it.pitch:"",it.edited?"":(it.shots||""),it.other||"",it.next_clip?"":"Only this one clip: no second scene."].filter(Boolean).join("\n"));const c=$("#gq-close");if(c)c.value="loose";
       S.ui.genNext=it.next_clip||"";toast("Idea filled in. Edit anything, then Generate");const f=$("#gq-people");if(f)f.scrollIntoView({behavior:"smooth",block:"center"});return}
+    case"ideanonext":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+b.dataset.i];if(it){it.next_clip="";it.edited=true;toast("Just this clip now")}break}
+    case"ideatweak":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const t=$("#idea-t-"+b.dataset.i),note=t?t.value.trim():"";if(!note){toast("Type what to change first");if(t)t.focus();return}if(t)t.value="";tweakIdea(pr,x,+b.dataset.i,note);break}
     case"gencancel":S.ui.genFor=null;break;
     
     case"findclips":findClips(b.dataset.v);break;
@@ -1241,6 +1252,7 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.ideaedit!=null){const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+t.dataset.ideaedit];if(it&&t.value.trim()!==it.pitch){it.pitch=t.value.trim();it.edited=true;save()}return}
   if(t.dataset&&t.dataset.resethour!=null){S.resetHour=+t.value;save();render();return}
   if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
   if(t.dataset&&t.dataset.nextlen!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);const it=g&&g.nextIdeas[+t.dataset.nextlen];if(it){it.length=secs(t.value)||it.length;t.value=it.length}save();return}
