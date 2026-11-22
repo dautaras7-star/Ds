@@ -78,7 +78,15 @@ Result: `{"ok":true,"instagram":[{"handle","available"}],"tiktok":[{"handle","av
 ### `suggest`: ready-made answers for the Generate window
 Input: `product` (full product info incl. notes and playbook), `clip` (the hook/reveal being generated, may be null), `known` (options already shown; give new ones).
 Write short, concrete, clickable options tailored to this product's real buyers and niche (not generic): who is in the video, where it happens, what they say, the mood, and other useful tweaks. Respect the product's rules (e.g. words to never say).
+When `clip` is given, every option must fit **this specific hook/reveal**: read `clip.analysis` (why_it_works, shots, dialogue) and write options that keep its mechanism but move it into this product's world. Two different hooks must never get the same options. If `clip.analysis` is missing, work from `clip.name` and `clip.desc`.
 Result: `{"ok":true,"people":[6 options],"background":[6],"script":[5 short lines or "No dialogue"],"mood":[5],"other":[5]}`. Each option under ~60 characters.
+
+### `ideas4clip`: full ideas that adapt one reference hook/reveal to this product
+Input: `product` (full info incl. notes and playbook), `clip` (`name`, `desc`, `url`, `clip` file, `analysis` breakdown, may be null), `known` (idea titles already shown; give different ones), `count`.
+1. Understand the reference first. If `analysis` is missing, look at the clip yourself (as in `analyze`). Name the **mechanism** that makes it work: the setup, the twist and the payoff (e.g. "old way vs new way: an outdated method fails dramatically, then the modern product saves the day").
+2. Transpose that mechanism into this product's niche, buyers and use. Don't just swap the product into the same scene: rebuild the scene so the same twist happens in the product's world. Example: reference "Christmas decor 1965 vs 2026: a woman decorating the tree falls over / next clip she unboxes LED lights" becomes, for glow-in-the-dark kids' dino pajamas, "mom wraps her kid in a string of old LED lights over plain black pajamas, switches them on, they spark and the kid screams / cut / next clip: unboxing the glowing dino pajamas".
+3. Make every idea filmable as a realistic phone video (Seedance, no start frame), with no text on screen. Respect the product's rules and playbook.
+Result: `{"ok":true,"mechanism":"one sentence","ideas":[{"title":"short name","pitch":"2-3 sentences: what happens, shot by shot","people":"who, age, look, clothes","background":"exact place, time of day, light","script":"exact spoken lines with who says them, or 'No dialogue'","mood":"","length":"6s","shots":"Shot 1 (0-2s): … Shot 2 (2-5s): …","other":"camera style, sounds, product moment","next_clip":"what the following clip shows (e.g. the reveal), or empty"}]}`. Give exactly `count` ideas, each clearly different from the others and from `known`.
 
 ### `analyze`: break down a reference hook / reveal
 Input: `name`, `desc`, `clip` (local video in this folder), `url` (Instagram link, may be empty).
@@ -91,7 +99,7 @@ Result: `{"ok":true,"summary":"one sentence","duration":"6s","why_it_works":"the
 
 ### `nextclips`: ideas for the next parts of a story
 Input: `product` (full info, notes, playbook), `clip` (`name`, `prompt` that made it, `video`, `history` of fix notes), `known` (ideas already shown; give new ones), `count`.
-Look at the clip (frames with ffmpeg if available) and its prompt. Suggest what should come NEXT to turn it into a complete ad: e.g. unboxing the product box, the reveal of how the product works (glow-in-the-dark when the lights go off, it moving, it pouring…), close-up details, a reaction, a payoff. Keep the SAME people as the clip but put each part in a DIFFERENT, fitting place (hook in the store → unboxing on the couch at home → reveal in the dark bedroom). Be creative but believable and specific to this product.
+If `clip.planned_next` is set, the user already planned the next clip when they picked this idea: make it the first idea. Look at the clip (frames with ffmpeg if available) and its prompt. Suggest what should come NEXT to turn it into a complete ad: e.g. unboxing the product box, the reveal of how the product works (glow-in-the-dark when the lights go off, it moving, it pouring…), close-up details, a reaction, a payoff. Keep the SAME people as the clip but put each part in a DIFFERENT, fitting place (hook in the store → unboxing on the couch at home → reveal in the dark bedroom). Be creative but believable and specific to this product.
 Result: `{"ok":true,"ideas":[{"type":"unboxing|reveal|demo|details|reaction|payoff","title":"short","description":"what happens, 1-2 sentences","setting":"where, light","people":"who (same as the clip)","length":"5s"}]}`
 
 ### `brandkit`: one brand asset with Higgsfield
@@ -112,7 +120,7 @@ How close to stay is `changes.closeness`:
 - `similar`: same shots, timing and hook mechanism, but write a FRESH script: new lines with the same intent, energy, length and rhythm. Not word for word.
 - `very close` (default): keep the shots and the script nearly identical, only adapted to our product and the user's changes.
 - `loose`: keep only the hook idea; shots and script can change.
-If the user typed a script in `changes.script`, use theirs.
+If the user typed a script in `changes.script`, use theirs. If `changes.other` starts with `Idea:`, the user picked one of your adapted ideas: build exactly that idea (its shots, people, place, script), using the reference only for pacing and camera feel. `changes.next_clip` is for a later clip; don't put it in this one.
 If the hook/reveal has a `spec` (a clip the user wrote themselves), it is the brief: `description` is what happens, and every other non-empty field (length, shots, pace, first_seconds, ending, people, who, clothes, pets, hands_only, location, time_of_day, lighting, season, camera_style, movement, angles, dialogue, accent, script, voiceover, music, sound_effects, product_appears_at, product_shown, must_show, show_box, mood, avoid) is a requirement. `spec.type` "Full video" means a complete ad (hook + product + payoff), not a short part. Fill the empty fields yourself following the playbook.
 Apply every non-empty field in `changes`: in Seedance, write them into the prompt (people, wardrobe, location, dialogue, mood, length); in Genjutsu, add them as extra swaps in item (1) of the template. Use the product photos/collage/box as references so the product looks exactly right, and show the brand name only where the product or box really has it.
 Always estimate cost first; if over `maxCredits`, stop with an error.

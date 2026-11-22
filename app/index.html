@@ -764,7 +764,7 @@ function nextBusy(g){return Object.values(JOBS).some(j=>j.type==="nextclips"&&j.
 function askNext(g){
   const pr=P(g.pid);g.nextIdeas=g.nextIdeas||[];
   if(MODE==="live"&&window.studio){
-    const id=runJob("nextclips","Next clips · "+(g.hook||g.reveal),{product:productInfo(pr),clip:{name:g.hook||g.reveal,prompt:g.prompt||"",video:g.video||"",history:(g.history||[]).map(h=>h.note).filter(Boolean)},known:g.nextIdeas.map(i=>i.title),count:6},r=>{if(r.ok)g.nextIdeas.push(...(r.ideas||[]).map(i=>({...i,sel:false})))});
+    const id=runJob("nextclips","Next clips · "+(g.hook||g.reveal),{product:productInfo(pr),clip:{name:g.hook||g.reveal,prompt:g.prompt||"",video:g.video||"",history:(g.history||[]).map(h=>h.note).filter(Boolean),planned_next:(g.changes&&g.changes.next_clip)||""},known:g.nextIdeas.map(i=>i.title),count:6},r=>{if(r.ok)g.nextIdeas.push(...(r.ideas||[]).map(i=>({...i,sel:false})))});
     JOBS[id].gid=g.id;
   }else{S.ui.nextBusy=g.id;later(1200,()=>{S.ui.nextBusy=null;g.nextIdeas.push(
     {type:"unboxing",title:"Unboxing on the couch",description:"Same mom and kid on the living-room couch at home, tearing open the box, kid gasps when the pajamas appear",setting:"Living room couch, evening, warm lamps",people:"Same mom and kid as part 1",length:"6s"},
@@ -835,7 +835,7 @@ function analyzing(x){return Object.values(JOBS).some(j=>j.type==="analyze"&&j.c
 function hasRef(x){return !!(x.clip||CLIPS[x.id]||x.url)}
 function analyzeClip(x){
   if(MODE!=="live"||!window.studio||!hasRef(x)||analyzing(x))return;
-  const id=runJob("analyze","Breakdown · "+x.name,{name:x.name,desc:x.desc||"",clip:x.clip||"",url:x.url||""},r=>{if(r.ok){const {ok,_session,...a}=r;x.analysis=a;toast("Breakdown ready: "+x.name)}});
+  const id=runJob("analyze","Breakdown · "+x.name,{name:x.name,desc:x.desc||"",clip:x.clip||"",url:x.url||""},r=>{if(r.ok){const {ok,_session,...a}=r;x.analysis=a;toast("Breakdown ready: "+x.name)}if(S.ui.suggAfter===x.id){S.ui.suggAfter=null;const pr=P(S.concept.pid);if(pr&&!(x.sg&&x.sg[pr.id]))askSugg(pr,x)}});
   JOBS[id].cid=x.id;
 }
 function breakdown(x){
@@ -853,10 +853,11 @@ function breakdown(x){
 function genModal(){
   const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);if(!x)return "";
   const pr=P(S.concept.pid),isHook=S.ui.genKind==="hook",eng=S.ui.genEngine||"Seedance";
-  const SG=suggFor(pr),AN=x.analysis||null,orig={people:AN&&AN.people,background:AN&&(AN.setting||AN.location),script:AN&&AN.dialogue_full,mood:AN&&AN.mood,other:AN&&AN.camera_style};const q=(id,label,ph,area,key)=>`<div class="f"><label class="f" for="${id}">${label}</label>${orig[key]?`<div class="orig">Original: ${esc(orig[key])}</div>`:""}${chips(id,SG[key])}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</div>`;
+  const SG=suggFor(pr,x),AN=x.analysis||null,orig={people:AN&&AN.people,background:AN&&(AN.setting||AN.location),script:AN&&AN.dialogue_full,mood:AN&&AN.mood,other:AN&&AN.camera_style};const q=(id,label,ph,area,key)=>`<div class="f"><label class="f" for="${id}">${label}</label>${orig[key]?`<div class="orig">Original: ${esc(orig[key])}</div>`:""}${chips(id,SG[key])}${area?`<textarea id="${id}" placeholder="${ph}"></textarea>`:`<input type="text" id="${id}" placeholder="${ph}">`}</div>`;
   return `<div class="modal" role="dialog" aria-modal="true" aria-label="Generate ${esc(x.name)}"><div class="modal-box">
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Generate this ${isHook?"hook":"reveal"}${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">${esc(x.name)}</h2></div><button class="btn" data-a="gencancel" aria-label="Close">✕</button></div>
     <div class="row" style="justify-content:space-between"><p class="note" style="margin:0">Click an option or type your own. Leave a question empty to keep it like the original ${isHook?"hook":"reveal"}.</p>${suggBar(pr,x)}</div>
+    ${ideasBlock(pr,x)}
     ${breakdown(x)}
     <div class="form">
       <div><div class="note" style="margin-bottom:6px">Engine</div><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="geneng" data-v="Seedance">Seedance · build from scratch</button><button aria-pressed="${eng==="Genjutsu"}" data-a="geneng" data-v="Genjutsu">Genjutsu · swap into the clip</button></div></div>
@@ -938,18 +939,33 @@ function relinkModal(){
   </div></div>`;
 }
 const SUGG_DEFAULT={people:["Mom with kids","Dad with kids","Young couple","Grandparents","Friends at a party","Hands only"],background:["Living room","Kitchen","Kids' bedroom","Garage","Backyard","Store aisle"],script:["No dialogue","\"Wait… what is this?\"","\"Best gift ever!\"","\"You need this\""],mood:["Funny","Shocked, then happy","Wholesome","Satisfying","Exciting"],other:["Product close-up at second 2","Night time","Christmas decor","Slow motion reveal"]};
-function suggFor(pr){const s0=pr&&pr.sugg;if(!s0)return SUGG_DEFAULT;const out={};for(const k in SUGG_DEFAULT)out[k]=(s0[k]&&s0[k].length?s0[k]:SUGG_DEFAULT[k]);return out}
+function suggFor(pr,x){const s0=(pr&&x&&x.sg&&x.sg[pr.id])||(pr&&pr.sugg);if(!s0)return SUGG_DEFAULT;const out={};for(const k in SUGG_DEFAULT)out[k]=(s0[k]&&s0[k].length?s0[k]:SUGG_DEFAULT[k]);return out}
 function chips(id,list){return `<div class="opts sugg" style="margin:2px 0 6px">${(list||[]).map(o=>`<button type="button" class="chip sm" data-a="sugg" data-for="${id}" data-v="${esc(o)}">${esc(o)}</button>`).join("")}<button type="button" class="chip sm" data-a="suggother" data-for="${id}">Other…</button></div>`}
 function suggBar(pr,x){
   if(!pr)return "";
-  const busy=Object.values(JOBS).some(j=>j.type==="suggest"&&j.pid===pr.id);
-  return busy?`<span class="scrolling" style="font-size:12px"><span class="spin"></span>Claude is writing options for ${esc(pr.name)}…</span>`:`<button type="button" class="btn" data-a="suggmore" style="padding:4px 10px;font-size:12px">${pr.sugg?"More options":"Get options for "+esc(pr.name)}</button>`;
+  const busy=Object.values(JOBS).some(j=>j.type==="suggest"&&j.pid===pr.id&&j.cid===(x?x.id:"")),has=x?!!(x.sg&&x.sg[pr.id]):!!pr.sugg;
+  return busy?`<span class="scrolling" style="font-size:12px"><span class="spin"></span>Claude is writing options${x?" for this "+(S.ui.genKind==="hook"?"hook":"reveal"):" for "+esc(pr.name)}…</span>`:`<button type="button" class="btn" data-a="suggmore" style="padding:4px 10px;font-size:12px">${has?"More options":"Get options for this "+(x?(S.ui.genKind==="hook"?"hook":"reveal"):"product")}</button>`;
 }
 function askSugg(pr,x){
   if(!pr||MODE!=="live"||!window.studio)return;
-  if(Object.values(JOBS).some(j=>j.type==="suggest"&&j.pid===pr.id))return;
-  const id=runJob("suggest","Options · "+pr.name,{product:productInfo(pr),clip:x?{name:x.name,desc:x.desc}:null,known:pr.sugg||null},r=>{if(r.ok){const old=pr.sugg||{};pr.sugg={};for(const k in SUGG_DEFAULT){pr.sugg[k]=[...new Set([...(r[k]||[]),...(old[k]||[])])].slice(0,10)}}});
-  JOBS[id].pid=pr.id;
+  if(Object.values(JOBS).some(j=>j.type==="suggest"&&j.pid===pr.id&&j.cid===(x?x.id:"")))return;
+  const cur=x?((x.sg||{})[pr.id]||null):pr.sugg||null;
+  const id=runJob("suggest","Options · "+(x?x.name+" · ":"")+pr.name,{product:productInfo(pr),clip:x?{name:x.name,desc:x.desc,analysis:x.analysis||null}:null,known:cur},r=>{if(r.ok){const old=cur||{},nw={};for(const k in SUGG_DEFAULT){nw[k]=[...new Set([...(r[k]||[]),...(old[k]||[])])].slice(0,10)}if(x){x.sg=x.sg||{};x.sg[pr.id]=nw}else pr.sugg=nw}});
+  JOBS[id].pid=pr.id;JOBS[id].cid=x?x.id:"";
+}
+function askIdeas(pr,x){
+  if(!pr||!x)return;if(MODE!=="live"||!window.studio){toast("Ideas come from Claude in Live mode");return}
+  if(Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id))return;
+  const old=((x.ideas||{})[pr.id])||[];
+  const id=runJob("ideas4clip","Ideas · "+x.name+" · "+pr.name,{product:productInfo(pr),clip:{name:x.name,desc:x.desc,url:x.url||"",clip:x.clip||"",analysis:x.analysis||null},known:old.map(i=>i.title),count:3},r=>{if(r.ok){x.ideas=x.ideas||{};x.ideas[pr.id]=[...(r.ideas||[]),...old].slice(0,9)}});
+  JOBS[id].cid=x.id;
+}
+function ideasBlock(pr,x){
+  if(!pr)return "";
+  const busy=Object.values(JOBS).some(j=>j.type==="ideas4clip"&&j.cid===x.id),list=((x.ideas||{})[pr.id])||[];
+  const btn=busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Claude is thinking up ideas for this ${S.ui.genKind==="hook"?"hook":"reveal"}…</span>`:`<button type="button" class="btn cy" data-a="ideasgo">💡 ${list.length?"More ideas":"Suggest full ideas for this "+(S.ui.genKind==="hook"?"hook":"reveal")}</button>`;
+  return `<div class="panel" style="padding:12px;margin:10px 0;background:var(--panel2)"><div class="row" style="justify-content:space-between"><div class="note" style="margin:0">Claude studies what makes this ${S.ui.genKind==="hook"?"hook":"reveal"} work and rewrites it for ${esc(pr.name)}: script, people, background, length.</div>${btn}</div>
+    ${list.map((i,n)=>`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;align-items:flex-start"><div style="min-width:0"><b>${esc(i.title||"Idea "+(n+1))}</b>${i.length?` <span class="pill">${esc(i.length)}</span>`:""}<div style="font-size:13px;margin-top:4px">${esc(i.pitch||"")}</div>${i.next_clip?`<div class="note" style="margin-top:4px">Next clip: ${esc(i.next_clip)}</div>`:""}</div><button type="button" class="btn pri" data-a="ideause" data-i="${n}" style="flex:none">Use this idea</button></div></div>`).join("")}</div>`;
 }
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
@@ -1151,9 +1167,14 @@ $("#main").addEventListener("click",e=>{
     case"rnsave":{const v=$("#rn-input").value.trim();const x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(v&&x)x.name=v;S.ui.editing=null;toast("Renamed");break}
     case"ask":S.ui.delAsk=id;break;
     case"nodel":S.ui.delAsk=null;break;
-    case"genask":{S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(pr&&!pr.sugg)askSugg(pr,x);if(x&&!x.analysis)analyzeClip(x);break}
+    case"genask":{S.ui.genFor=id;S.ui.genNext="";S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(x&&!x.analysis&&hasRef(x)){analyzeClip(x);S.ui.suggAfter=x.id}else if(pr&&x&&!(x.sg&&x.sg[pr.id]))askSugg(pr,x);break}
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
-    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x&&genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"very close"}))location.hash="generations";S.ui.genFor=null;break}
+    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x&&genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"very close",next_clip:S.ui.genNext||""}))location.hash="generations";S.ui.genFor=null;break}
+    case"ideasgo":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);askIdeas(pr,x);break}
+    case"ideause":{const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+b.dataset.i];if(!it)return;
+      const set=(id,v)=>{const el=$("#"+id);if(el)el.value=v||""};set("gq-people",it.people);set("gq-bg",it.background);set("gq-script",it.script);set("gq-mood",it.mood);set("gq-len",secs(it.length));
+      set("gq-other",[it.pitch?"Idea: "+it.pitch:"",it.shots||"",it.other||""].filter(Boolean).join("\n"));const c=$("#gq-close");if(c)c.value="loose";
+      S.ui.genNext=it.next_clip||"";toast("Idea filled in. Edit anything, then Generate");const f=$("#gq-people");if(f)f.scrollIntoView({behavior:"smooth",block:"center"});return}
     case"gencancel":S.ui.genFor=null;break;
     
     case"findclips":findClips(b.dataset.v);break;
