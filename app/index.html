@@ -920,7 +920,7 @@ async function readOwnClip(){
     mood:keep(v("oc-mood")),avoid:v("oc-avoid")};
   const kind=spec.type==="Reveal"?"rev":"hook";
   const x={id:uid(),name:v("oc-name")||desc.slice(0,40),desc,fits:"My own clip",own:true,full:spec.type==="Full video",spec,bg:G("#2a1d3d","#0b0b10")};
-  const src=($("#oc-src")||{}).files;if(src&&src[0]){try{const fp=await saveFile(src[0]);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=src[0].name}catch(e){toast("Couldn't save the source clip")}}
+  const src=($("#oc-src")||{}).files;if(src&&src[0]){try{const fp=await saveClip(src[0]);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=src[0].name}catch(e){toast("Couldn't save the source clip")}}
   (kind==="hook"?S.hooks:S.reveals).unshift(x);
   return {x,kind,spec};
 }
@@ -1003,6 +1003,53 @@ async function saveFile(file){
   if(window.studio&&window.studio.importMedia){const src=window.studio.pathOf(file);if(src){try{return await window.studio.importMedia(src)}catch(e){window.studio.log("import failed "+file.name+": "+e.message)}}}
   if(window.studio&&window.studio.saveMedia){const buf=await file.arrayBuffer();return await window.studio.saveMedia(file.name,buf)}
   return URL.createObjectURL(file);
+}
+// Trim a hook/reveal video before it is used. Resolves with the saved path (trimmed or whole).
+async function saveClip(file){
+  const fp=await saveFile(file);
+  if(!window.studio||!window.studio.trimVideo||/^blob:/.test(fp))return fp;
+  return await new Promise(resolve=>trimDialog(fp,file.name,resolve));
+}
+function trimDialog(fp,name,done){
+  const fmt=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=(t%60).toFixed(1);return (m?m+":"+(s<10?"0":""):"")+s+"s"};
+  const box=document.createElement("div");box.className="modal";box.style.zIndex=60;box.setAttribute("role","dialog");box.setAttribute("aria-label","Trim clip");
+  box.innerHTML=`<div class="modal-box" style="width:min(560px,100%)">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Trim clip</div><h2 style="font-size:18px;margin-top:2px;overflow-wrap:anywhere">${esc(name||"")}</h2></div></div>
+    <p class="note" style="margin:0">Drag the two handles to keep only the part you want. The selection plays on a loop.</p>
+    <video id="tr-v" src="${media(fp)}" playsinline muted autoplay style="width:100%;max-height:52vh;background:#000;border-radius:10px;margin-top:10px"></video>
+    <div id="tr-bar" style="position:relative;height:34px;margin:12px 4px 4px;touch-action:none;cursor:pointer">
+      <div style="position:absolute;left:0;right:0;top:13px;height:8px;border-radius:4px;background:var(--panel2)"></div>
+      <div id="tr-sel" style="position:absolute;top:13px;height:8px;border-radius:4px;background:var(--cy,#22d3ee)"></div>
+      <div id="tr-ph" style="position:absolute;top:6px;width:2px;height:22px;background:#fff;opacity:.8;pointer-events:none"></div>
+      <div id="tr-a" data-h="a" style="position:absolute;top:3px;width:16px;height:28px;margin-left:-8px;border-radius:6px;background:#fff;cursor:ew-resize;box-shadow:0 1px 4px #0008"></div>
+      <div id="tr-b" data-h="b" style="position:absolute;top:3px;width:16px;height:28px;margin-left:-8px;border-radius:6px;background:#fff;cursor:ew-resize;box-shadow:0 1px 4px #0008"></div>
+    </div>
+    <div class="row" style="justify-content:space-between;font-size:13px"><span>Start <b id="tr-st">0s</b></span><span>Length <b id="tr-len">–</b></span><span>End <b id="tr-en">–</b></span></div>
+    <div class="row" style="gap:6px;font-size:12px"><button type="button" class="btn" id="tr-seta" style="padding:4px 10px;font-size:12px">Start here</button><button type="button" class="btn" id="tr-setb" style="padding:4px 10px;font-size:12px">End here</button><button type="button" class="btn" id="tr-sound" style="padding:4px 10px;font-size:12px">🔇 Sound off</button></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" id="tr-whole">Use whole video</button><button class="btn pri" id="tr-ok">Trim &amp; use</button></div>
+  </div>`;
+  document.body.appendChild(box);
+  const v=box.querySelector("#tr-v"),bar=box.querySelector("#tr-bar");let D=0,A=0,B=0,drag=null;
+  const pos=t=>(D?t/D*100:0)+"%";
+  const draw=()=>{box.querySelector("#tr-a").style.left=pos(A);box.querySelector("#tr-b").style.left=pos(B);const sel=box.querySelector("#tr-sel");sel.style.left=pos(A);sel.style.width=(D?(B-A)/D*100:0)+"%";
+    box.querySelector("#tr-st").textContent=fmt(A);box.querySelector("#tr-en").textContent=fmt(B);box.querySelector("#tr-len").textContent=fmt(B-A)};
+  v.addEventListener("loadedmetadata",()=>{D=v.duration||0;A=0;B=D;draw()});
+  v.addEventListener("timeupdate",()=>{box.querySelector("#tr-ph").style.left=pos(v.currentTime);if(!drag&&(v.currentTime>=B-0.03||v.currentTime<A-0.2)){v.currentTime=A;v.play().catch(()=>{})}});
+  const tAt=e=>{const r=bar.getBoundingClientRect();return Math.min(D,Math.max(0,(e.clientX-r.left)/r.width*D))};
+  bar.addEventListener("pointerdown",e=>{if(!D)return;const t=tAt(e);drag=e.target.dataset.h||(Math.abs(t-A)<Math.abs(t-B)?"a":"b");bar.setPointerCapture(e.pointerId);move(e)});
+  const move=e=>{if(!drag)return;const t=tAt(e);if(drag==="a")A=Math.min(t,B-0.3);else B=Math.max(t,A+0.3);A=Math.max(0,A);B=Math.min(D,B);v.currentTime=drag==="a"?A:B;draw()};
+  bar.addEventListener("pointermove",move);
+  bar.addEventListener("pointerup",()=>{drag=null;v.currentTime=A;v.play().catch(()=>{})});
+  box.querySelector("#tr-seta").onclick=()=>{A=Math.min(v.currentTime,B-0.3);draw()};
+  box.querySelector("#tr-setb").onclick=()=>{B=Math.max(v.currentTime,A+0.3);draw();v.currentTime=A};
+  box.querySelector("#tr-sound").onclick=e=>{v.muted=!v.muted;e.target.textContent=v.muted?"🔇 Sound off":"🔊 Sound on"};
+  const close=r=>{v.pause();box.remove();done(r)};
+  box.querySelector("#tr-whole").onclick=()=>close(fp);
+  box.querySelector("#tr-ok").onclick=async()=>{
+    if(!D||(A<0.05&&B>D-0.05))return close(fp);
+    const b=box.querySelector("#tr-ok");b.disabled=true;b.textContent="Trimming…";
+    try{const out=await window.studio.trimVideo({src:fp,start:A,end:B});toast(`Trimmed to ${fmt(B-A)}`);close(out)}
+    catch(err){toast("Couldn't trim: "+String(err.message||err).replace(/^Error invoking remote method[^:]*: (Error: )?/,""));b.disabled=false;b.textContent="Trim & use"}};
 }
 function kitRun(p,k,note){
   p.kit[k]="gen";S.ui.kitFix=null;
@@ -1109,13 +1156,13 @@ function render(){
   const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
   $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&(v==="generations"||v==="finals")?nextModal():"");counts();save();jobsUI();
   for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
-  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
+  const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveClip(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
     const files=[...$("#np-photos").files];const photos=[];for(const f of files){try{photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}
     const brand=$("#np-brand").value.trim();
     const np={id:uid(),from:nm,url:"",img:photos[0]?media(photos[0]):"",bg:G("#232336","#0b0b10"),variation:"My own product",niche:$("#np-niche").value.trim(),desc:$("#np-desc").value.trim(),photos,nameOpts:[],name:brand,color:["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"][Math.random()*5|0],kit:{logo:"todo",cover:"todo",collage:photos.length?"todo":"todo",box:"todo"},supplier:"—",handles:brand?"@"+brand.toLowerCase().replace(/\s+/g,""):""};
     S.products.unshift(np);S.ui.addProd=false;S.ui.prod=np.id;toast("Product added");render();if(!brand&&MODE==="live")askNames(np)};
-  const f2=$("#addform2");if(f2)f2.onsubmit=e=>{e.preventDefault();const n=$("#a2n").value.trim();if(!n)return;const kind=f2.dataset.kind,list=kind==="hook"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#a2d").value.trim()||"—",fits:$("#a2f").value.trim()||"Any",url:$("#a2u").value.trim(),bg:G("#232336","#0b0b10")};const cf=$("#a2c").files[0];if(cf){nx.clipName=cf.name;saveFile(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addKind=null;toast("Added");render()};
+  const f2=$("#addform2");if(f2)f2.onsubmit=e=>{e.preventDefault();const n=$("#a2n").value.trim();if(!n)return;const kind=f2.dataset.kind,list=kind==="hook"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#a2d").value.trim()||"—",fits:$("#a2f").value.trim()||"Any",url:$("#a2u").value.trim(),bg:G("#232336","#0b0b10")};const cf=$("#a2c").files[0];if(cf){nx.clipName=cf.name;saveClip(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addKind=null;toast("Added");render()};
   const vo=$("#varown");if(vo)vo.onkeydown=e=>{if(e.key==="Enter"&&vo.value.trim()){setVar(P(S.ui.prod),vo.value.trim())}};
 }
 function later(ms,fn){setTimeout(()=>{fn();render()},ms)}
@@ -1273,7 +1320,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.dataset&&t.dataset.notefiles&&t.files&&t.files.length){const p=P(S.ui.prod);p.noteFiles=p.noteFiles||[];for(const f of [...t.files]){try{p.noteFiles.push({name:f.name,path:await saveFile(f)})}catch(err){toast("Couldn't save "+f.name)}}toast("Files attached");render();return}
   if(t.dataset&&t.dataset.addphotos&&t.files&&t.files.length){const p=P(S.ui.prod);p.photos=p.photos||[];for(const f of [...t.files]){try{p.photos.push(await saveFile(f))}catch(err){toast("Couldn't save "+f.name)}}if(!p.img&&p.photos[0])p.img=media(p.photos[0]);toast("Photos added");render();return}
   if(t.dataset&&t.dataset.kitup&&t.files&&t.files[0]){const p=P(S.ui.prod),k=t.dataset.kitup;try{const fp=await saveFile(t.files[0]);p.art=p.art||{};p.art[k]=fp;p.kit[k]="ok";toast("Uploaded");render()}catch(err){toast("Couldn't save the file")}return}
-  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveFile(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip: "+(err.message||err));window.studio&&window.studio.log&&window.studio.log("upload clip failed: "+(err.message||err))}render();return}
+  if(t.dataset&&t.dataset.up&&t.files&&t.files[0]){const f=t.files[0],x=[...S.hooks,...S.reveals].find(i=>i.id===t.dataset.up);if(!x)return;try{toast("Saving clip…");const fp=await saveClip(f);if(CLIPS[x.id])URL.revokeObjectURL(CLIPS[x.id]);delete CLIPS[x.id];if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;toast("Clip uploaded")}catch(err){toast("Couldn't save the clip: "+(err.message||err));window.studio&&window.studio.log&&window.studio.log("upload clip failed: "+(err.message||err))}render();return}
   const num=v=>parseInt(String(v).replace(/[^0-9]/g,""),10);
   if(t.id==="cr-posts"&&num(t.value)>0)S.criteria.maxPosts=num(t.value);
   if(t.id==="cr-fol"&&num(t.value)>=0)S.criteria.minFollowers=num(t.value);

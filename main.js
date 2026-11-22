@@ -353,6 +353,19 @@ async function toPhoneMp4(buf) {
   } finally { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {} }
 }
 // Join clips in order into one vertical 1080x1920 video, adding silence to clips without sound.
+// Cut a clip to [start, end] seconds (re-encoded so the cut is frame-accurate).
+ipcMain.handle('video:trim', async (_e, { src, start, end }) => {
+  const input = path.isAbsolute(src) ? src : path.join(ws(), src);
+  const st = Math.max(0, +start || 0), dur = Math.max(0.2, (+end || 0) - st);
+  const rel = `media/trim-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}.mp4`;
+  const info = await probe(input);
+  const args = ['-y', '-ss', st.toFixed(3), '-i', input, '-t', dur.toFixed(3), '-map', '0:v:0', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '17', '-pix_fmt', 'yuv420p'];
+  if (info.audio) args.push('-map', '0:a:0', '-c:a', 'aac', '-b:a', '192k');
+  args.push('-movflags', '+faststart', path.join(ws(), rel));
+  await runFfmpeg(args);
+  log(`trimmed ${src} ${st}-${st + dur}s -> ${rel}`);
+  return rel;
+});
 ipcMain.handle('video:join', async (_e, { srcs, product, name }) => {
   const tmp = path.join(ws(), 'media', 'join-' + Date.now().toString(36));
   fs.mkdirSync(tmp, { recursive: true });
