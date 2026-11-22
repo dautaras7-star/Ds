@@ -339,7 +339,7 @@ function counts(){
   $("#c-fin").textContent=S.gens.filter(g=>["final","upscaling"].includes(g.st)).length;
   $("#credits").textContent=usedToday();
   $("#hfleft").textContent=S.hfBalance&&S.hfBalance.n!=null?Number(S.hfBalance.n).toLocaleString():"–";
-  $("#hfwhen").textContent=S.hfBalance&&S.hfBalance.at?"checked "+new Date(S.hfBalance.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"";
+  $("#hfwhen").textContent=S.hfBalance&&S.hfBalance.at?"checked "+new Date(S.hfBalance.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"";{const u=S.hfBalance&&S.hfBalance.unlim;if(u&&u.available)$("#hfwhen").textContent+=` · Unlimited ON (720p free)${u.expires_at?" until "+new Date(u.expires_at).toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):""}`;else if(u)$("#hfwhen").textContent+=" · Unlimited off (480p)"}
   $("#reset").hidden=MODE==="live";
 }
 
@@ -539,6 +539,7 @@ connection(){
         <label class="f">Always-allowed tools (space separated)<input type="text" id="st-tools" value="${esc(s.allowedTools||"")}"></label>
         <div class="two"><label class="f">Max credits per video<input type="text" inputmode="numeric" id="st-max" value="${esc(s.maxCreditsPerVideo||150)}"></label>
         <label class="check" style="margin-top:18px"><input type="checkbox" id="st-chrome" ${s.useChrome!==false?"checked":""}>Use Claude in Chrome for scrolling</label></div>
+        <label class="check"><input type="checkbox" id="st-unlim" ${s.useUnlim!==false?"checked":""}>Use Higgsfield Unlimited when it's on: Seedance at 720p for free. When Unlimited ends, back to 480p on credits automatically.</label>
         <div class="two"><label class="f">Upscale method<select id="st-upm"><option value="web" ${(s.upscaleMethod||"web")==="web"?"selected":""}>Higgsfield website in Chrome (exact settings)</option><option value="api" ${s.upscaleMethod==="api"?"selected":""}>Direct Topaz 1080p (fast, no model/FPS choice)</option></select></label>
         <label class="f">Upscale model<input type="text" id="st-upmodel" value="${esc(s.upscaleModel||"Topaz Starlight Precise")}"></label></div>
         <div class="two"><label class="f">Upscale resolution<select id="st-upres">${["1080p","2K","4K"].map(r=>`<option ${r===(s.upscaleRes||"1080p")?"selected":""}>${r}</option>`).join("")}</select></label>
@@ -652,7 +653,7 @@ const LIVE={
       resume_session:g.session||"",previous_video:g.video||"",previous_prompt:g.prompt||"",previous_job_id:g.job_id||"",
       history:g.history.map(h=>({version:h.v,note:h.note,prompt:h.prompt,job_id:h.job_id})),
       maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});if(r._session)g.session=r._session;
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr,res:r.resolution||g.res,unlim:!!r.unlimited});if(r._session)g.session=r._session;
         g.history.push({v:g.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note,analysis:r.analysis||"",method:r.method||"",at:Date.now()});addCredits(r.credits||0)}
       else g.st="ready"})},
   approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling");
@@ -677,7 +678,7 @@ const CONN={
   goconn(){location.hash="connection"}
 };
 document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e.preventDefault();
-  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked,upscaleMethod:$("#st-upm").value,upscaleModel:$("#st-upmodel").value.trim()||"Topaz Starlight Precise",upscaleRes:$("#st-upres").value,upscaleFps:$("#st-upfps").value});
+  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked,upscaleMethod:$("#st-upm").value,upscaleModel:$("#st-upmodel").value.trim()||"Topaz Starlight Precise",upscaleRes:$("#st-upres").value,upscaleFps:$("#st-upfps").value,useUnlim:$("#st-unlim").checked});
   toast("Settings saved");render()});
 function applyResult(g,type,r){
   if(!r||!r.ok)return false;
@@ -806,7 +807,7 @@ function genPart(parent,idea,order){
     g.jobId=runJob("generate",`Part ${order} · ${idea.title}`,{product:productInfo(pr),hook:{name:idea.title,desc:idea.description,spec:{type:"Story part",description:idea.description,location:idea.setting||"",who:idea.people||"",length:idea.length||""}},reveal:null,engine:"Seedance",
       continuity:{part:order,previous_prompt:parent.prompt||"",previous_video:parent.video||"",same_people:true,new_setting:idea.setting||"",note:"Same people (faces, age, hair, clothes) as the previous part, in a different place. No start frame. Clearly a new scene."},
       changes:{},maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else Object.assign(g,{st:"failed",err:r.error||"Unknown error"})});
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||"",res:r.resolution||"",unlim:!!r.unlimited});addCredits(r.credits||0)}else Object.assign(g,{st:"failed",err:r.error||"Unknown error"})});
   }else{addCredits(72);later(3000,()=>{g.st="ready";g.dur="0:06";g.cr=72;g.bg=pr&&pr.img||IMG.v3})}
 }
 async function checkJoin(g){
@@ -989,7 +990,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
     if(!window.studio){toast("Live mode only works in the desktop app");return}
     const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null,analysis:x.analysis||null};
     g.started=Date.now();g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else Object.assign(g,{st:"failed",err:r.error||"Unknown error",retry:{x:{...x},kind,engine,changes}})});
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||"",res:r.resolution||"",unlim:!!r.unlimited});addCredits(r.credits||0)}else Object.assign(g,{st:"failed",err:r.error||"Unknown error",retry:{x:{...x},kind,engine,changes}})});
   }else{addCredits(72);later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
   toast(`Generating ${isHook?"hook":"reveal"} with ${engine}`);return true;
 }
@@ -1144,7 +1145,7 @@ function gTile(g){
   else if(g.st==="failed")act=`<div class="confirm" style="color:var(--bad,#e5484d)">Didn't generate: ${esc(g.err||"")}</div>${/authenticat|OAuth|log ?in|\/login/i.test(g.err||"")?`<div class="note" style="margin-top:4px">Claude Code is signed out. Open PowerShell, paste <b>&amp; "$env:USERPROFILE\\.local\\bin\\claude.exe"</b> and press Enter, then type <b>/login</b> and sign in. Then press Try again.</div>`:""}<div class="row fill"><button class="btn" data-a="failrm" data-id="${g.id}">Remove</button>${g.retry?`<button class="btn pri" data-a="failretry" data-id="${g.id}">Try again</button>`:""}</div>`;
   else if(g.stuck)act=`<div class="confirm" style="color:var(--warn)">The result didn't come back to the app (it may have been closed while Claude worked).</div><div class="row fill"><button class="btn pri" data-a="hfget" data-id="${g.id}">Get it from Higgsfield</button><button class="btn" data-a="unstick" data-id="${g.id}">${g.video?"Keep old video":"Drop"}</button></div>`;
   else act=`<div class="note">${g.st==="generating"?(g.jobId&&JOBS[g.jobId]?esc(JOBS[g.jobId].progress):"About 3 min left"):g.st==="fixing"?"Fix: "+esc(g.fix||""):"Upscaling, then moves to Finals"}</div>`;
-  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · 480p</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}${pastFixes(g)}</div>`;
+  return `<div class="vid"><div class="player" style="${busy?"background:var(--panel2)":bg(g)}">${busy?"":vmedia(g)}${st}<span class="status r" style="color:var(--muted)">${g.engine}</span>${g.st==="ready"?'<span class="play"></span>':""}<div class="p-info"><span>${g.dur} · ${esc(g.res||"480p")}${g.unlim?" · Unlimited":""}</span><span>${g.cr} cr</span></div></div><div class="lab">${glab(g)}${(g.history||[]).length>1?` <span class="pill cy">v${g.history.length}</span>`:""}</div>${g.video&&!busy?`<button class="btn" data-a="watch" data-id="${g.id}">▶ Watch</button>`:""}${act}${pastFixes(g)}</div>`;
 }
 
 function route(){let h=(location.hash||"#products").slice(1);if(h==="library")h="concepts";return V[h]&&h!=="product"?h:"products"}
@@ -1174,7 +1175,7 @@ function suggest(p){const base=["Nova","Glow","Pulse","Orbit","Loop","Spark","Pe
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{S.ui.prod=null;location.hash=b.dataset.view;render()});
 addEventListener("hashchange",render);
 $("#reset").onclick=()=>{if(MODE==="live")return;const b=$("#reset");if(b.dataset.sure!=="1"){b.dataset.sure="1";b.textContent="Click again to reset EXAMPLE data";setTimeout(()=>{b.dataset.sure="";b.textContent="Reset example data"},4000);return}try{localStorage.removeItem("vs3")}catch(e){}S=load();render()};
-$("#hfrefresh").onclick=()=>{if(MODE!=="live"||!window.studio){toast("Remaining credits come from Higgsfield in Live mode");return}if(Object.values(JOBS).some(j=>j.type==="balance"))return;$("#hfrefresh").textContent="Checking…";runJob("balance","Checking Higgsfield credits",{},r=>{$("#hfrefresh").textContent="Check remaining";if(r.ok&&r.credits!=null){S.hfBalance={n:r.credits,at:Date.now()};render()}})};
+$("#hfrefresh").onclick=()=>{if(MODE!=="live"||!window.studio){toast("Remaining credits come from Higgsfield in Live mode");return}if(Object.values(JOBS).some(j=>j.type==="balance"))return;$("#hfrefresh").textContent="Checking…";runJob("balance","Checking Higgsfield credits",{},r=>{$("#hfrefresh").textContent="Check remaining";if(r.ok&&r.credits!=null){S.hfBalance={n:r.credits,at:Date.now(),unlim:r.unlimited||null};render()}})};
 
 $("#main").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b)return;

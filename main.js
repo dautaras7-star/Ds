@@ -465,6 +465,7 @@ ipcMain.handle('job:start', (e, job) => {
   const id = job.id;
   const wc = e.sender;
   const send = (m) => { if (!wc.isDestroyed()) wc.send('job:event', { id, ...m }); };
+  if (['generate', 'fix'].includes(job.type) && job.input) job.input.useUnlim = s.useUnlim !== false;
   fs.writeFileSync(path.join(ws(), 'jobs', id + '.json'), JSON.stringify(job, null, 2));
   const resultPath = path.join(ws(), 'results', id + '.json');
   try { fs.unlinkSync(resultPath); } catch (_) { /* no old result */ }
