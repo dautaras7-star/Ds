@@ -149,5 +149,8 @@ Input: `kind` (`generate` | `fix` | `upscale`), `higgsfield_job_id` (may be empt
 If `higgsfield_job_id` is set, look that job up and wait for it to finish. Otherwise list the user's recent Higgsfield video generations created after `since` and pick the one that matches (engine, product, the hook/reveal, and the fix note). Don't generate anything new.
 Result: same shape as `generate` (or `upscale` when `kind` is `upscale`). If nothing matches, `{"ok":false,"error":"No matching video found on Higgsfield after <time>."}`
 
+### `balance`: remaining Higgsfield credits
+Call Higgsfield's `balance` tool. Result: `{"ok":true,"credits":<number of credits left>}`
+
 ### `ping`
 Connection test. Check which tools you have. Result: `{"ok":true,"higgsfield":bool,"chrome":bool,"drive":bool}`

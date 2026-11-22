@@ -514,6 +514,150 @@ ipcMain.handle('job:cancel', (_e, id) => {
   return true;
 });
 
+// ---------- data recovery & automatic backups ----------
+// 1) Older copies of the app's saved state can still sit in Chromium's LevelDB files
+//    (Local Storage/leveldb/*.log and *.ldb) after a value was deleted or overwritten.
+// 2) Every job also left jobs/<id>.json and results/<id>.json in the work folder.
+// 3) From now on the state is backed up to workspace/backups.
+
+function snappyDecode(src) {
+  // Pure-JS Snappy raw-format decoder.
+  let p = 0, len = 0, shift = 0;
+  while (true) { const b = src[p++]; len |= (b & 0x7f) << shift; if (b < 0x80) break; shift += 7; if (shift > 28) throw new Error('bad snappy'); }
+  const out = Buffer.alloc(len); let o = 0;
+  while (p < src.length && o < len) {
+    const tag = src[p++]; const t = tag & 3;
+    if (t === 0) {
+      let l = tag >> 2;
+      if (l >= 60) { const n = l - 59; l = 0; for (let i = 0; i < n; i++) l |= src[p++] << (8 * i); }
+      l += 1; src.copy(out, o, p, p + l); p += l; o += l;
+    } else {
+      let l, off;
+      if (t === 1) { l = ((tag >> 2) & 7) + 4; off = ((tag >> 5) << 8) | src[p++]; }
+      else if (t === 2) { l = (tag >> 2) + 1; off = src[p] | (src[p + 1] << 8); p += 2; }
+      else { l = (tag >> 2) + 1; off = src.readUInt32LE(p); p += 4; }
+      if (!off || off > o) throw new Error('bad snappy offset');
+      for (let i = 0; i < l; i++) { out[o] = out[o - off]; o++; }
+    }
+  }
+  return out.subarray(0, o);
+}
+function varint(buf, pos) { let r = 0, s = 0, b; do { b = buf[pos.p++]; r += (b & 0x7f) * 2 ** s; s += 7; } while (b & 0x80); return r; }
+function sstBlocks(buf) {
+  // LevelDB table: footer (48 bytes) -> index block -> data block handles. Each block has a 5-byte trailer (type: 0 raw, 1 snappy).
+  const readBlock = (off, size) => {
+    const raw = buf.subarray(off, off + size); const type = buf[off + size];
+    return type === 1 ? snappyDecode(raw) : Buffer.from(raw);
+  };
+  const entries = (block) => {
+    const n = block.readUInt32LE(block.length - 4); const end = block.length - 4 - n * 4; const pos = { p: 0 }; const out = []; let key = Buffer.alloc(0);
+    while (pos.p < end) {
+      const shared = varint(block, pos), ns = varint(block, pos), vl = varint(block, pos);
+      key = Buffer.concat([key.subarray(0, shared), block.subarray(pos.p, pos.p + ns)]); pos.p += ns;
+      out.push({ key, value: block.subarray(pos.p, pos.p + vl) }); pos.p += vl;
+    }
+    return out;
+  };
+  const f = { p: buf.length - 48 }; varint(buf, f); varint(buf, f); // metaindex handle
+  const io = varint(buf, f), is = varint(buf, f);
+  const blocks = [];
+  for (const e of entries(readBlock(io, is))) {
+    const h = { p: 0 }; const off = varint(e.value, h), size = varint(e.value, h);
+    try { blocks.push(readBlock(off, size)); } catch (_) {}
+  }
+  return blocks;
+}
+function levelLogRecords(buf) {
+  // LevelDB log format: 32 KiB blocks, each record fragment has a 7-byte header (crc4, len2, type1).
+  const out = []; let cur = []; const BLOCK = 32768;
+  for (let b = 0; b < buf.length; b += BLOCK) {
+    let p = b; const end = Math.min(b + BLOCK, buf.length);
+    while (p + 7 <= end) {
+      const len = buf.readUInt16LE(p + 4), type = buf[p + 6];
+      if (type === 0 && len === 0) break;
+      const data = buf.subarray(p + 7, p + 7 + len); p += 7 + len;
+      if (type === 1) out.push(Buffer.from(data));
+      else if (type === 2) cur = [data];
+      else if (type === 3) cur.push(data);
+      else if (type === 4) { cur.push(data); out.push(Buffer.concat(cur)); cur = []; }
+    }
+  }
+  return out;
+}
+function jsonAt(text, start) {
+  // Read one balanced JSON object starting at text[start] === '{'.
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true; else if (c === '{') depth++; else if (c === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+  }
+  return null;
+}
+function findStates(text, source, found, order) {
+  const re = /\{"v":3,"s":\{/g; let m;
+  while ((m = re.exec(text))) {
+    const raw = jsonAt(text, m.index); if (!raw) continue;
+    try {
+      const j = JSON.parse(raw); const s = j.s || {};
+      const live = !(s.products || []).some((p) => ['WildBeam', 'DriftView'].includes(p.name)); // example data has these
+      found.push({ source, order: (order || 0) + m.index / 1e9, live, size: raw.length, products: (s.products || []).length, gens: (s.gens || []).length, hooks: (s.hooks || []).length, reveals: (s.reveals || []).length, finds: (s.finds || []).length, names: (s.products || []).map((p) => p.name || p.from).slice(0, 6), state: s });
+    } catch (_) { /* partial or corrupt copy */ }
+  }
+}
+ipcMain.handle('recover:scan', () => {
+  const dir = path.join(app.getPath('userData'), 'Local Storage', 'leveldb');
+  const found = [];
+  let files = [];
+  try { files = fs.readdirSync(dir).filter((f) => /\.(log|ldb)$/.test(f)); } catch (_) {}
+  for (const f of files) {
+    let buf; try { buf = fs.readFileSync(path.join(dir, f)); } catch (_) { continue; }
+    let chunks;
+    if (f.endsWith('.log')) chunks = levelLogRecords(buf);
+    else { try { chunks = sstBlocks(buf); } catch (err) { log('ldb read failed ' + f + ': ' + err); chunks = []; } chunks.push(buf); }
+    let mt = 0; try { mt = fs.statSync(path.join(dir, f)).mtimeMs; } catch (_) {}
+    chunks.forEach((c, ci) => {
+      const ord = mt + ci; // later records in a newer file = newer copy
+      findStates(c.toString('latin1'), f, found, ord);       // values stored as Latin-1
+      findStates(c.toString('utf16le'), f, found, ord);      // values stored as UTF-16
+      if (c.length > 1) findStates(c.subarray(1).toString('utf16le'), f, found, ord); // odd alignment
+    });
+  }
+  // Also offer the automatic backups.
+  const bdir = path.join(ws(), 'backups');
+  try {
+    for (const f of fs.readdirSync(bdir).filter((x) => x.endsWith('.json')).sort().reverse().slice(0, 30)) {
+      try { findStates(fs.readFileSync(path.join(bdir, f), 'utf8'), 'backup ' + f, found, fs.statSync(path.join(bdir, f)).mtimeMs); } catch (_) {}
+    }
+  } catch (_) {}
+  // Unique by content, richest first.
+  const seen = new Set();
+  const uniq = found.filter((x) => { if (!x.products && !x.gens) return false; const k = x.size + ':' + x.gens + ':' + x.products; if (seen.has(k)) return false; seen.add(k); return true; });
+  // Real (non-example) copies first, newest first.
+  uniq.sort((a, b) => (b.live - a.live) || (b.order - a.order));
+  for (const u of uniq) u.when = u.order > 1e12 ? new Date(Math.floor(u.order)).toISOString() : '';
+  log(`recover:scan found ${uniq.length} copies`);
+  return uniq.slice(0, 25);
+});
+
+// Rebuild from the job and result files when no saved copy is left.
+ipcMain.handle('recover:jobs', () => {
+  const read = (d) => { const out = {}; try { for (const f of fs.readdirSync(path.join(ws(), d))) { if (!f.endsWith('.json') || f.includes('.partial')) continue; try { out[f.replace(/\.json$/, '')] = { ...JSON.parse(fs.readFileSync(path.join(ws(), d, f), 'utf8')), _mtime: fs.statSync(path.join(ws(), d, f)).mtimeMs }; } catch (_) {} } } catch (_) {} return out; };
+  return { jobs: read('jobs'), results: read('results') };
+});
+
+// Automatic backups: keep the newest 60.
+ipcMain.handle('backup:save', (_e, json) => {
+  try {
+    const dir = path.join(ws(), 'backups'); fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.writeFileSync(path.join(dir, `state-${stamp}.json`), json);
+    const files = fs.readdirSync(dir).filter((f) => f.startsWith('state-')).sort();
+    for (const f of files.slice(0, Math.max(0, files.length - 60))) fs.unlinkSync(path.join(dir, f));
+    return true;
+  } catch (err) { log('backup failed: ' + err); return false; }
+});
+
 // ---------- window ----------
 let win = null;
 function createWindow() {

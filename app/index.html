@@ -258,7 +258,7 @@ table.bd th{color:var(--muted);font-weight:600}
     <button class="nav" data-view="schedule"><span class="n"></span>Schedule<span class="soon">later</span></button>
     <button class="nav" data-view="connection"><span class="n"></span><span class="dot" id="ccdot"></span>Connection</button>
     <div id="jobs"></div>
-    <div class="rail-foot">Higgsfield credits today<b id="credits">0</b><button class="btn" id="reset" style="margin-top:10px;width:100%">Reset example data</button></div>
+    <div class="rail-foot"><div>Higgsfield credits</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px"><span>Used today</span><b id="credits">0</b></div><div style="display:flex;justify-content:space-between;align-items:baseline"><span>Remaining</span><b id="hfleft">–</b></div><div class="note" id="hfwhen" style="margin-top:2px"></div><button class="btn" id="hfrefresh" style="margin-top:8px;width:100%;font-size:12px;padding:5px">Check remaining</button><button class="btn" id="reset" style="margin-top:6px;width:100%;font-size:12px;padding:5px">Reset example data</button></div>
   </nav>
   <main id="main"></main>
 </div>
@@ -314,7 +314,9 @@ const KEY=()=>MODE==="live"?"vs-live":"vs3";
 function seedLive(){const s=seed();s.finds=[];s.products=[];s.gens=[];s.credits=0;return s}
 function load(){let s=MODE==="live"?seedLive():seed();try{const x=JSON.parse(localStorage.getItem(KEY())||"null");if(x&&x.v===3){s=x.s;s.ui={...seed().ui}}}catch(e){}return s}
 let S=load();
-const save=()=>{try{localStorage.setItem(KEY(),JSON.stringify({v:3,s:S}))}catch(e){}};
+let BK=null,BKLAST=0;
+const save=()=>{let j;try{j=JSON.stringify({v:3,s:S});localStorage.setItem(KEY(),j)}catch(e){}
+  if(MODE==='live'&&window.studio&&window.studio.backupSave&&j&&(S.products.length||S.gens.length||S.hooks.length)){clearTimeout(BK);BK=setTimeout(()=>{if(Date.now()-BKLAST>60000){BKLAST=Date.now();window.studio.backupSave(j)}},8000)}};
 let SETTINGS=null,WS="",CC={checked:false,ok:false,version:""},GP={hasClient:false,connected:false};
 const JOBS={};
 const media=pth=>!pth?"":/^(https?:|file:|blob:|data:|img\/)/.test(pth)?pth:"file:///"+(WS.replace(/\\/g,"/")+"/"+pth).replace(/^\/+/,"");
@@ -335,7 +337,10 @@ function counts(){
   $("#c-my").textContent=S.products.length;
   $("#c-gen").textContent=S.gens.filter(g=>!["final","upscaling"].includes(g.st)).length;
   $("#c-fin").textContent=S.gens.filter(g=>["final","upscaling"].includes(g.st)).length;
-  $("#credits").textContent=S.credits;
+  $("#credits").textContent=usedToday();
+  $("#hfleft").textContent=S.hfBalance&&S.hfBalance.n!=null?Number(S.hfBalance.n).toLocaleString():"–";
+  $("#hfwhen").textContent=S.hfBalance&&S.hfBalance.at?"checked "+new Date(S.hfBalance.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}):"";
+  $("#reset").hidden=MODE==="live";
 }
 
 const V={
@@ -515,6 +520,7 @@ connection(){
   return `<div class="head"><div><h1>Connection</h1><p class="sub">Viral Studio uses Claude Code on this PC to do the real work. When Live mode is on, every button starts a Claude Code job in the background with your Claude subscription.</p></div></div>
   ${!inApp?'<div class="panel" style="margin-bottom:16px;color:var(--warn)">You are viewing this outside the desktop app, so Live mode is off.</div>':""}
   <div class="conn">
+    ${window.studio&&window.studio.recoverScan?recoverPanel():""}
     <section class="panel"><h3>Mode</h3>
       <div class="opts"><button class="chip" aria-pressed="${MODE==="example"}" data-a="mode" data-v="example">Example data</button><button class="chip" aria-pressed="${MODE==="live"}" data-a="mode" data-v="live" ${inApp?"":"disabled"}>Live · Claude Code</button></div>
       <p class="note" style="margin-top:8px">Example data and Live data are kept separate. Switching doesn't delete either.</p>
@@ -526,6 +532,7 @@ connection(){
       ${ping?`<div class="demand" style="margin-top:10px">${ping.running?'<span class="scrolling"><span class="spin"></span>Asking Claude Code which tools it has…</span>':ping.ok?`<div><span class="dot ${ping.higgsfield?"ok":"bad"}"></span>Higgsfield ${ping.higgsfield?"connected":"not found"}</div><div><span class="dot ${ping.chrome?"ok":"bad"}"></span>Claude in Chrome ${ping.chrome?"connected":"not found"}</div><div><span class="dot ${ping.drive?"ok":"bad"}"></span>Google Drive ${ping.drive?"connected":"not found"}</div>`:`<span style="color:var(--bad)">${esc(ping.error||"Test failed")}</span>`}</div>`:""}
     </section>
     <section class="panel"><h3>Settings</h3>
+        <label class="f">"Used today" credits reset at<select data-resethour><option value="0" ${(S.resetHour||0)===0?"selected":""}>12 am (midnight)</option><option value="12" ${S.resetHour===12?"selected":""}>12 pm (noon)</option></select></label>
       <form class="form" id="setform">
         <div class="two"><label class="f">Claude Code command<input type="text" id="st-cmd" value="${esc(s.claudeCommand||"claude")}"></label>
         <label class="f">Permission mode<select id="st-perm">${["auto","acceptEdits","dontAsk","bypassPermissions"].map(m=>`<option ${m===s.permissionMode?"selected":""}>${m}</option>`).join("")}</select></label></div>
@@ -624,7 +631,7 @@ const LIVE={
   stopscroll(){Object.keys(JOBS).filter(k=>JOBS[k].type==="scroll").forEach(k=>window.studio.cancelJob(k));S.ui.scrolling=false},
   morenames(){askNames(P(S.ui.prod))},
   kitgen(b){kitRun(P(S.ui.prod),b.dataset.k)},
-  _oldkitgen(b){const p=P(S.ui.prod),k=b.dataset.k;p.kit[k]="gen";runJob("brandkit",`${k} · ${p.name}`,{asset:k,name:p.name,product:p.from,variation:p.variation,color:p.color,refs:k==="collage"?[]:refsOf(p)},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"})},
+  _oldkitgen(b){const p=P(S.ui.prod),k=b.dataset.k;p.kit[k]="gen";runJob("brandkit",`${k} · ${p.name}`,{asset:k,name:p.name,product:p.from,variation:p.variation,color:p.color,refs:k==="collage"?[]:refsOf(p)},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";addCredits(r.credits||0)}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"})},
   generate(){
     const c=S.concept,pr=P(c.pid),hk=i=>S.hooks.find(x=>x.id===i),rv=i=>S.reveals.find(x=>x.id===i);let n=0;
     c.hooks.forEach(h=>c.reveals.forEach(rId=>{
@@ -632,7 +639,7 @@ const LIVE={
       const g={id:uid(),pid:c.pid,hook:H.name,reveal:R.name,engine,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
       S.gens.unshift(g);n++;
       g.jobId=runJob("generate",`${H.name} + ${R.name}`,{product:{name:pr.name,from:pr.from,refs:refsOf(pr)},hook:{name:H.name,desc:H.desc},reveal:{name:R.name,desc:R.desc},engine,source:pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-        if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});S.credits+=r.credits||0}else S.gens=S.gens.filter(x=>x!==g)});
+        if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0});addCredits(r.credits||0)}else S.gens=S.gens.filter(x=>x!==g)});
     }));
     S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${n} video${n>1?"s":""}`);location.hash="generations";
   },
@@ -646,7 +653,7 @@ const LIVE={
       history:g.history.map(h=>({version:h.v,note:h.note,prompt:h.prompt,job_id:h.job_id})),
       maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
       if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr});if(r._session)g.session=r._session;
-        g.history.push({v:g.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note,analysis:r.analysis||"",method:r.method||"",at:Date.now()});S.credits+=r.credits||0}
+        g.history.push({v:g.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note,analysis:r.analysis||"",method:r.method||"",at:Date.now()});addCredits(r.credits||0)}
       else g.st="ready"})},
   approve(b,id){const g=S.gens.find(x=>x.id===id);if(!g.job_id){toast("This clip has no Higgsfield job to upscale");return}g.st="upscaling";toast("Moved to Finals · upscaling");
     g.started=Date.now();g.stuck=false;g.jobId=runJob("upscale",`Upscale · ${g.hook||g.reveal}`,{job_id:g.job_id,video:g.video||"",method:(SETTINGS&&SETTINGS.upscaleMethod)||"web",settings:{model:(SETTINGS&&SETTINGS.upscaleModel)||"Topaz Starlight Precise",resolution:(SETTINGS&&SETTINGS.upscaleRes)||"1080p",fps:(SETTINGS&&SETTINGS.upscaleFps)||"60 FPS"},useChrome:((SETTINGS&&SETTINGS.upscaleMethod)||"web")==="web"},r=>{if(r.ok){g.st="final";g.video=r.video;g.up_job=r.job_id;g.upSpec=r.settings_used||"";g.drive=false;toast("Upscaled · in Finals");checkJoin(g)}else{g.st="ready";toast("Upscale failed, the clip is back in Generations")}})},
@@ -657,6 +664,9 @@ const CONN={
   async cccheck(){CC={checked:false};render();CC={checked:true,...await window.studio.checkClaude()};render()},
   ping(){S.ui.ping={running:true};runJob("ping","Connection test",{},r=>{S.ui.ping=r})},
   openws(){window.studio.openWorkspace()},
+  recscan(){recoverScan()},
+  recjobs(){rebuildFromJobs()},
+  recuse(b){const i=+b.dataset.i,c=RECOVER&&RECOVER[i];if(!c)return;if(S.ui.recSure!==i){S.ui.recSure=i;return}S.ui.recSure=null;restoreState(c.state)},
   async pickexport(){S.ui.expDir=await window.studio.pickExportDir();render()},
   openexport2(){window.studio.openExportDir()},
   async gpconnect(){const id=($("#gp-id")||{}).value||"",sec=($("#gp-secret")||{}).value||"";if(!GP.hasClient||id.trim()){if(!id.trim()||!sec.trim()){toast("Paste the Client ID and Client secret first");return}await window.studio.gpSetClient({clientId:id,clientSecret:sec})}
@@ -674,7 +684,7 @@ function applyResult(g,type,r){
   if(type==="upscale"){Object.assign(g,{st:"final",video:r.video,up_job:r.job_id,drive:false,stuck:false});return true}
   if(!r.video)return false;
   Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id||g.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,cr:r.credits||g.cr,stuck:false});
-  S.credits+=r.credits||0;return true;
+  addCredits(r.credits||0);return true;
 }
 async function recoverStuck(){
   if(MODE!=="live"||!window.studio||!window.studio.jobResult)return;
@@ -696,6 +706,49 @@ function getFromHiggsfield(g){
   g.jobId=runJob("recover",`Find on Higgsfield · ${g.hook||g.reveal}`,{kind:type,higgsfield_job_id:g.hf_job||"",since:g.started?new Date(g.started-60000).toISOString():"",product:pr?pr.name:"",clip:g.hook||g.reveal,engine:g.engine,note:g.fix||""},r=>{
     if(!applyResult(g,type==="upscale"?"upscale":"generate",r)){g.stuck=true;if(r&&r.ok)toast("Claude couldn't find the video")}else toast("Got it from Higgsfield")});
 }
+function dayStart(){const d=new Date(),h=(S.resetHour!=null?S.resetHour:0);const t=new Date(d);t.setHours(h,0,0,0);if(t>d)t.setDate(t.getDate()-1);return t.getTime()}
+function addCredits(n){n=+n||0;if(!n)return;S.creditLog=(S.creditLog||[]).filter(x=>x.at>Date.now()-40*864e5);S.creditLog.push({at:Date.now(),cr:n});S.credits=(+S.credits||0)+n;if(S.hfBalance&&S.hfBalance.n!=null)S.hfBalance.n=Math.max(0,S.hfBalance.n-n)}
+function usedToday(){const t=dayStart();return (S.creditLog||[]).filter(x=>x.at>=t).reduce((a,x)=>a+x.cr,0)}
+
+// ---- recovery ----
+let RECOVER=null;
+async function recoverScan(){S.ui.recBusy=true;render();try{RECOVER=await window.studio.recoverScan()}catch(e){RECOVER=[];toast("Scan failed: "+e.message)}S.ui.recBusy=false;render()}
+function restoreState(st){
+  try{localStorage.setItem("vs-live-before-restore",JSON.stringify({v:3,s:S}))}catch(e){}
+  S={...seedLive(),...st};S.ui={...seed().ui};MODE="live";try{localStorage.setItem("vs-mode","live")}catch(e){}save();toast("Data restored");RECOVER=null;render();
+}
+async function rebuildFromJobs(){
+  S.ui.recBusy=true;render();let d;try{d=await window.studio.recoverJobs()}catch(e){toast("Couldn't read job files");S.ui.recBusy=false;render();return}
+  const R=d.results,J=d.jobs,ids=Object.keys(J).sort((a,b)=>(J[a]._mtime||0)-(J[b]._mtime||0));
+  const prods={},hooks={},reveals={},gens=[],finds=[];const col=["#d9480f","#1f9e5a","#6c3fd1","#0f7fd9","#c21f6a"];
+  const P2=pi=>{if(!pi)return null;const nm=pi.name||pi.from||pi.product;if(!nm)return null;let p=prods[nm];if(!p){p=prods[nm]={id:uid(),from:pi.from||nm,name:pi.name||"",variation:pi.variation||"As is",niche:pi.niche||"",desc:pi.description||"",photos:pi.photos||[],nameOpts:[],color:pi.color||col[Object.keys(prods).length%5],kit:{logo:"todo",cover:"todo",collage:"todo",box:"todo"},art:{},supplier:pi.supplier||"",url:pi.source_reel||"",notes:pi.notes||"",playbook:pi.playbook||"",social:{instagram:pi.instagram||"",tiktok:pi.tiktok||""}}}
+    for(const k of ["logo","box","collage","cover"])if(pi[k]){p.art[k]=pi[k];p.kit[k]="ok"}return p};
+  const clipOf=(c,list)=>{if(!c||!c.name)return;const x=list[c.name]||(list[c.name]={id:uid(),name:c.name,desc:c.desc||"",fits:c.fits||"Any",bg:G("#232336","#0b0b10")});if(c.clip)x.clip=c.clip;if(c.url)x.url=c.url;if(c.spec)x.spec=c.spec;if(c.analysis)x.analysis=c.analysis};
+  for(const id of ids){const j=J[id],r=R[id]||{},inp=j.input||{},t=j.type;
+    if(inp.product&&typeof inp.product==="object")P2(inp.product);
+    if(t==="brandkit"){const p=P2({name:inp.name,from:inp.product,niche:inp.niche,description:inp.description});if(p&&r.ok&&r.file){p.art[inp.asset]=r.file;p.kit[inp.asset]="ok"}}
+    if(t==="names"&&r.ok){const p=P2({from:inp.product,name:""});if(p)p.nameOpts=[...new Set([...p.nameOpts,...(r.names||[])])]}
+    if(t==="scroll"&&r.ok)(r.finds||[]).forEach(f=>finds.push({id:uid(),...f,img:f.thumb?media(f.thumb):"",bg:G("#1d1d2b","#0b0b10"),quotes:f.quotes||[]}));
+    if(t==="findclips"&&r.ok)(r.items||[]).forEach(it=>clipOf(it,inp.kind==="reveal"?reveals:hooks));
+    if(t==="analyze"&&r.ok){const x=hooks[inp.name]||reveals[inp.name];const {ok,_session,_mtime,...a}=r;if(x)x.analysis=a;else hooks[inp.name]={id:uid(),name:inp.name,desc:inp.desc||"",fits:"Any",clip:inp.clip||"",url:inp.url||"",analysis:a,bg:G("#232336","#0b0b10")}}
+    if(t==="generate"||t==="fix"){clipOf(inp.hook,hooks);clipOf(inp.reveal,reveals);
+      if(r.ok&&r.video){const p=P2(inp.product);const prev=t==="fix"&&gens.find(g=>g.job_id===inp.previous_job_id);
+        if(prev){prev.history=prev.history||[{v:1,video:prev.video,prompt:prev.prompt,job_id:prev.job_id,note:""}];prev.history.push({v:prev.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note:inp.note||""});Object.assign(prev,{video:r.video,job_id:r.job_id,prompt:r.prompt||prev.prompt,fix:inp.note||""});prev.fixNotes=(prev.fixNotes||[]).concat([{note:inp.note||"",at:j._mtime||0,v:prev.history.length}])}
+        else gens.push({id:uid(),pid:p?p.id:"",hook:inp.hook?inp.hook.name:"",reveal:inp.reveal?inp.reveal.name:"",engine:inp.engine||"Seedance",video:r.video,job_id:r.job_id||"",prompt:r.prompt||"",dur:r.duration||"0:05",cr:r.credits||0,st:"ready",session:r._session||"",story:inp.continuity?"recovered":undefined})}}
+    if(t==="upscale"&&r.ok){const g=gens.find(x=>x.job_id===inp.job_id);if(g){g.st="final";g.video=r.video;g.upSpec=r.settings_used||""}}
+  }
+  const st={...seedLive(),finds,products:Object.values(prods),hooks:[...Object.values(hooks),...S.hooks.filter(h=>!hooks[h.name])],reveals:Object.values(reveals),gens:gens.reverse()};
+  S.ui.recBusy=false;restoreState(st);toast(`Rebuilt: ${st.products.length} products, ${st.gens.length} clips, ${st.hooks.length} hooks`);
+}
+function recoverPanel(){
+  const list=RECOVER;
+  return `<section class="panel" style="grid-column:1/-1;border-color:var(--warn)"><h3>Recover my data</h3>
+    <p class="note" style="margin-top:-4px">Finds earlier saved copies of your products, hooks and clips on this PC, and the automatic backups. Restoring keeps a copy of what you have now.</p>
+    <div class="row">${S.ui.recBusy?'<span class="scrolling"><span class="spin"></span>Searching this PC…</span>':`<button class="btn pri" data-a="recscan">Find my data</button><button class="btn" data-a="recjobs">Rebuild from job files</button>`}</div>
+    ${list?(list.length?`<div style="overflow-x:auto;margin-top:10px"><table class="bd"><thead><tr><th>Saved copy</th><th>Products</th><th>Clips</th><th>Hooks</th><th>Reveals</th><th>Finds</th><th></th></tr></thead><tbody>${list.map((c,i)=>`<tr><td>${i===0?'<span class="pill ok">newest</span> ':""}${c.when?esc(new Date(c.when).toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})):esc(c.source)}${c.live?"":' <span class="pill">example data</span>'}<div class="note">${esc((c.names||[]).join(", "))}</div></td><td>${c.products}</td><td>${c.gens}</td><td>${c.hooks}</td><td>${c.reveals}</td><td>${c.finds}</td><td><button class="btn pri" data-a="recuse" data-i="${i}" style="padding:4px 10px;font-size:12px">${S.ui.recSure===i?"Click again to restore":"Restore"}</button></td></tr>`).join("")}</tbody></table></div>`:'<p class="note" style="margin-top:8px">No saved copies found. Try <b>Rebuild from job files</b>.</p>'):""}
+  </section>`;
+}
+
 async function boot(){
   if(!window.studio){CC={checked:true,ok:false,version:""};if(MODE==="live"){MODE="example";S=load()}render();return}
   try{SETTINGS=await window.studio.getSettings();WS=SETTINGS.workspace||""}catch(e){}
@@ -751,8 +804,8 @@ function genPart(parent,idea,order){
     g.jobId=runJob("generate",`Part ${order} · ${idea.title}`,{product:productInfo(pr),hook:{name:idea.title,desc:idea.description,spec:{type:"Story part",description:idea.description,location:idea.setting||"",who:idea.people||"",length:idea.length||""}},reveal:null,engine:"Seedance",
       continuity:{part:order,previous_prompt:parent.prompt||"",previous_video:parent.video||"",same_people:true,new_setting:idea.setting||"",note:"Same people (faces, age, hair, clothes) as the previous part, in a different place. No start frame. Clearly a new scene."},
       changes:{},maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||""});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
-  }else{S.credits+=72;later(3000,()=>{g.st="ready";g.dur="0:06";g.cr=72;g.bg=pr&&pr.img||IMG.v3})}
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:06",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else S.gens=S.gens.filter(y=>y!==g)});
+  }else{addCredits(72);later(3000,()=>{g.st="ready";g.dur="0:06";g.cr=72;g.bg=pr&&pr.img||IMG.v3})}
 }
 async function checkJoin(g){
   if(!g.story)return;
@@ -900,7 +953,8 @@ function askSugg(pr,x){
 }
 function genOne(x,kind,engine,changes){changes=changes||{};
   const pr=P(S.concept.pid);
-  if(!pr){toast("Finish a product's brand kit first, then pick it at the top");return}
+  if(!pr){toast("Pick a product at the top of Concepts first (its brand kit must be finished)");return false}
+  if(MODE==="live"&&!window.studio){toast("Live mode only works in the desktop app");return false}
   const isHook=kind==="hook";
   const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,changes,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
   S.gens.unshift(g);S.ui.genFor=null;
@@ -908,9 +962,9 @@ function genOne(x,kind,engine,changes){changes=changes||{};
     if(!window.studio){toast("Live mode only works in the desktop app");return}
     const clip={name:x.name,desc:x.desc,fits:x.fits,url:x.url||"",clip:x.clip||"",spec:x.spec||null,analysis:x.analysis||null};
     g.started=Date.now();g.jobId=runJob("generate",`${isHook?"Hook":"Reveal"} · ${x.name} · ${engine}`,{product:productInfo(pr),hook:isHook?clip:null,reveal:isHook?null:clip,engine,changes,source:x.clip||x.url||pr.url||"",maxCredits:(SETTINGS&&+SETTINGS.maxCreditsPerVideo)||150},r=>{
-      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});S.credits+=r.credits||0}else S.gens=S.gens.filter(y=>y!==g)});
-  }else{S.credits+=72;later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
-  toast(`Generating ${isHook?"hook":"reveal"} with ${engine}. See Generations`);
+      if(r.ok){Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id,prompt:r.prompt||"",dur:r.duration||"0:15",cr:r.credits||0,session:r._session||""});addCredits(r.credits||0)}else S.gens=S.gens.filter(y=>y!==g)});
+  }else{addCredits(72);later(3500,()=>{g.st="ready";g.dur="0:12";g.cr=72;g.bg=pr.img||IMG.v4})}
+  toast(`Generating ${isHook?"hook":"reveal"} with ${engine}`);return true;
 }
 function findClips(kind){
   const word=kind==="hook"?"hook":"reveal",list=kind==="hook"?S.hooks:S.reveals;
@@ -929,8 +983,8 @@ function kitRun(p,k,note){
   p.kit[k]="gen";S.ui.kitFix=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");p.kit[k]=p.art&&p.art[k]?"pending":"todo";return}
-    runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path),variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";S.credits+=r.credits||0}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
-  }else{S.credits+=4;later(1500,()=>{p.kit[k]="pending"})}
+    runJob("brandkit",`${k}${note?" fix":""} · ${p.name}`,{asset:k,name:p.name,product:p.from,niche:p.niche||"",description:p.desc||"",notes:p.notes||"",note_files:(p.noteFiles||[]).map(f=>f.path),variation:p.variation,color:p.color,refs:k==="collage"?(p.photos||[]):refsOf(p),note:note||"",previous:(p.art&&p.art[k])||""},r=>{if(r.ok){p.art=p.art||{};p.art[k]=r.file;p.kit[k]="pending";addCredits(r.credits||0)}else p.kit[k]=p.art&&p.art[k]?"pending":"todo"});
+  }else{addCredits(4);later(1500,()=>{p.kit[k]="pending"})}
 }
 function bestHandles(p,n){
   const h=(p.handlesCheck||{})[n];const pick=x=>!x?null:x.available===true?x.handle:x.alt||x.handle;
@@ -1024,7 +1078,8 @@ function render(){
   document.querySelectorAll(".nav").forEach(b=>b.setAttribute("aria-current",b.dataset.view===v?"page":"false"));
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
-  const warn=MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"";
+  const empty=MODE==="live"&&window.studio&&!S.products.length&&!S.gens.length&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--warn)"><b>Your data looks empty.</b> If it was deleted, you can probably bring it back. <button class="btn pri" data-a="goconn" style="margin-left:8px">Recover my data</button></div>`:"";
+  const warn=empty+(MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"");
   const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
   $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&(v==="generations"||v==="finals")?nextModal():"");counts();save();jobsUI();
   for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
@@ -1043,7 +1098,8 @@ function suggest(p){const base=["Nova","Glow","Pulse","Orbit","Loop","Spark","Pe
 
 document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{S.ui.prod=null;location.hash=b.dataset.view;render()});
 addEventListener("hashchange",render);
-$("#reset").onclick=()=>{try{localStorage.removeItem(KEY())}catch(e){}S=load();render()};
+$("#reset").onclick=()=>{if(MODE==="live")return;const b=$("#reset");if(b.dataset.sure!=="1"){b.dataset.sure="1";b.textContent="Click again to reset EXAMPLE data";setTimeout(()=>{b.dataset.sure="";b.textContent="Reset example data"},4000);return}try{localStorage.removeItem("vs3")}catch(e){}S=load();render()};
+$("#hfrefresh").onclick=()=>{if(MODE!=="live"||!window.studio){toast("Remaining credits come from Higgsfield in Live mode");return}if(Object.values(JOBS).some(j=>j.type==="balance"))return;$("#hfrefresh").textContent="Checking…";runJob("balance","Checking Higgsfield credits",{},r=>{$("#hfrefresh").textContent="Check remaining";if(r.ok&&r.credits!=null){S.hfBalance={n:r.credits,at:Date.now()};render()}})};
 
 $("#main").addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b)return;
@@ -1061,7 +1117,7 @@ $("#main").addEventListener("click",e=>{
     case"var":setVar(p,b.dataset.v);return;
     case"morenames":p._namesBusy=true;later(900,()=>{p._namesBusy=false;p.nameOpts=[...p.nameOpts,...suggest(p)]});break;
     case"name":if(p.name!==b.dataset.v){p.unOpts=null;p.social={}}p.name=b.dataset.v;Object.keys(p.kit).forEach(k=>p.kit[k]="todo");toast("Name set. Generate the brand kit next");break;
-    case"kitgen":{const k=b.dataset.k;p.kit[k]="gen";S.credits+=4;later(1500,()=>{p.kit[k]="pending"});break}
+    case"kitgen":{const k=b.dataset.k;p.kit[k]="gen";addCredits(4);later(1500,()=>{p.kit[k]="pending"});break}
     case"kitok":p.kit[b.dataset.k]="ok";if(kitDone(p)===4)toast("Brand kit done. Ready for concepts");break;
     case"toconcept":S.concept={pid:id,hooks:[],reveals:[],engines:{}};S.ui.prod=null;location.hash="concepts";break;
     case"cprod":S.concept={pid:id,hooks:[],reveals:[],engines:{}};break;
@@ -1069,12 +1125,12 @@ $("#main").addEventListener("click",e=>{
     case"pickrev":{const l=S.concept.reveals;l.includes(id)?l.splice(l.indexOf(id),1):l.push(id);break}
     case"eng":S.concept.engines[b.dataset.k]=b.dataset.v;break;
     case"rmcombo":{const c=S.concept;if(c.hooks.length>1&&c.reveals.length>1){toast("Unselect a hook or reveal to drop this pair")}else if(c.hooks.length===1){c.reveals=c.reveals.filter(x=>x!==b.dataset.r)}else{c.hooks=c.hooks.filter(x=>x!==b.dataset.h)}break}
-    case"generate":{const c=S.concept;const hk=i=>S.hooks.find(x=>x.id===i).name,rv=i=>S.reveals.find(x=>x.id===i).name;const pr=P(c.pid);const made=[];c.hooks.forEach(h=>c.reveals.forEach(r=>{const g={id:uid(),pid:c.pid,hook:hk(h),reveal:rv(r),engine:c.engines[h+"|"+r]||"Seedance",dur:"0:15",cr:72,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};S.gens.unshift(g);made.push(g);S.credits+=72}));S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${made.length} video${made.length>1?"s":""}`);later(4000,()=>made.forEach(g=>{g.st="ready";g.bg=pr.img||IMG.v4}));location.hash="generations";break}
+    case"generate":{const c=S.concept;const hk=i=>S.hooks.find(x=>x.id===i).name,rv=i=>S.reveals.find(x=>x.id===i).name;const pr=P(c.pid);const made=[];c.hooks.forEach(h=>c.reveals.forEach(r=>{const g={id:uid(),pid:c.pid,hook:hk(h),reveal:rv(r),engine:c.engines[h+"|"+r]||"Seedance",dur:"0:15",cr:72,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};S.gens.unshift(g);made.push(g);addCredits(72)}));S.concept={pid:c.pid,hooks:[],reveals:[],engines:{}};toast(`Generating ${made.length} video${made.length>1?"s":""}`);later(4000,()=>made.forEach(g=>{g.st="ready";g.bg=pr.img||IMG.v4}));location.hash="generations";break}
     case"fix":S.ui.fixOpen=id;S.ui.dropAsk=null;break;
     case"pastfix":S.ui.pastFor=S.ui.pastFor===id?null:id;break;
     case"usefix":{const f=fixNotesOf(gen)[+b.dataset.i];S.ui.fixOpen=id;S.ui.dropAsk=null;render();const t=$("#fx");if(t&&f){t.value=f.note;t.focus()}return}
     case"fixcancel":S.ui.fixOpen=null;break;
-    case"fixsend":{const nt=$("#fx").value.trim();gen.fixNotes=fixNotesOf(gen);gen.fixNotes.push({note:nt,at:Date.now(),v:gen.fixNotes.length+2});gen.fix=nt}gen.st="fixing";S.ui.fixOpen=null;S.credits+=gen.cr;toast("Regenerating with your fix");later(3500,()=>{gen.st="ready"});break;
+    case"fixsend":{const nt=$("#fx").value.trim();gen.fixNotes=fixNotesOf(gen);gen.fixNotes.push({note:nt,at:Date.now(),v:gen.fixNotes.length+2});gen.fix=nt}gen.st="fixing";S.ui.fixOpen=null;addCredits(gen.cr);toast("Regenerating with your fix");later(3500,()=>{gen.st="ready"});break;
     case"drop":S.ui.dropAsk=id;S.ui.fixOpen=null;break;
     case"dropno":S.ui.dropAsk=null;break;
     case"dropyes":S.gens=S.gens.filter(g=>g.id!==id);S.ui.dropAsk=null;toast("Dropped");break;
@@ -1096,7 +1152,7 @@ $("#main").addEventListener("click",e=>{
     case"nodel":S.ui.delAsk=null;break;
     case"genask":{S.ui.genFor=id;S.ui.genKind=b.dataset.k;S.ui.genEngine=S.ui.genEngine||"Seedance";const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===id);if(pr&&!pr.sugg)askSugg(pr,x);if(x&&!x.analysis)analyzeClip(x);break}
     case"geneng":S.ui.genEngine=b.dataset.v;{const m=document.querySelectorAll("[data-a=geneng]");m.forEach(x=>x.setAttribute("aria-pressed",x.dataset.v===b.dataset.v))}return;
-    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x)genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"very close"});S.ui.genFor=null;break}
+    case"gengo":{const x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const v=id=>($("#"+id)||{}).value||"";if(x&&genOne(x,S.ui.genKind,S.ui.genEngine||"Seedance",{people:v("gq-people").trim(),background:v("gq-bg").trim(),script:v("gq-script").trim(),mood:v("gq-mood").trim(),length:secs(v("gq-len")),other:v("gq-other").trim(),closeness:v("gq-close")||"very close"}))location.hash="generations";S.ui.genFor=null;break}
     case"gencancel":S.ui.genFor=null;break;
     
     case"findclips":findClips(b.dataset.v);break;
@@ -1132,7 +1188,7 @@ $("#main").addEventListener("click",e=>{
     case"ownclip":{S.ui.ownClip=true;const pr=P(S.concept.pid);if(pr&&!pr.sugg)askSugg(pr,null);break}
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
-    case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;for(let i=0;i<r.spec.versions;i++)genOne(r.x,r.kind,r.spec.engine,{});render()});return;
+    case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;let ok=false;for(let i=0;i<r.spec.versions;i++)ok=genOne(r.x,r.kind,r.spec.engine,{})||ok;if(ok)location.hash="generations";render()});return;
     case"hfget":if(!window.studio){toast("Only works in the desktop app");return}getFromHiggsfield(gen);break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;
     case"closeview":if(e.target.closest("[data-stop]")&&!e.target.closest("button"))return;S.ui.view=null;break;
@@ -1159,6 +1215,7 @@ $("#main").addEventListener("click",e=>{
 });
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
+  if(t.dataset&&t.dataset.resethour!=null){S.resetHour=+t.value;save();render();return}
   if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
   if(t.dataset&&t.dataset.nextlen!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);const it=g&&g.nextIdeas[+t.dataset.nextlen];if(it){it.length=secs(t.value)||it.length;t.value=it.length}save();return}
   if(t.dataset&&t.dataset.nextsel!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);if(g&&g.nextIdeas[+t.dataset.nextsel])g.nextIdeas[+t.dataset.nextsel].sel=t.checked;render();return}
