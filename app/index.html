@@ -684,16 +684,36 @@ document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e
 function syncBtn(){
   if(MODE!=="live"||!window.studio)return "";
   const busy=Object.values(JOBS).some(j=>j.type==="sync");
-  return busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Checking Higgsfield…</span>`:`<button class="btn" data-a="syncgo" title="Find videos that finished on Higgsfield but never reached the app">🔄 Check everything is imported</button>`;
+  const j=Object.entries(JOBS).find(([k,v])=>v.type==="sync");
+  if(S.ui.syncLocal)return `<span class="scrolling" style="font-size:13px"><span class="spin"></span>Checking the app's own files…</span>`;
+  return busy?`<span class="row" style="gap:8px;flex-wrap:nowrap;max-width:520px"><span class="scrolling" style="font-size:13px;min-width:0"><span class="spin"></span><span data-job="${j[0]}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(j[1].progress||"Checking Higgsfield…")}</span></span><button class="btn" data-a="syncstop" style="padding:3px 10px;font-size:12px;flex:none">Stop</button></span>`:`<button class="btn" data-a="syncgo" title="Find videos that finished on Higgsfield but never reached the app">🔄 Check everything is imported</button>`;
 }
-function syncHF(){
-  if(Object.values(JOBS).some(j=>j.type==="sync"))return;
+async function syncLocal(){
+  // 1) Fast: results Claude already left on this PC (finished jobs, or a video link in a partial file).
+  let n=0;
+  for(const g of S.gens){
+    const pending=["generating","fixing","upscaling","failed"].includes(g.st)||g.stuck||g.fixErr;
+    if(!pending||!g.jobId||JOBS[g.jobId])continue;
+    let r=null;try{r=await window.studio.jobResult(g.jobId)}catch(e){}
+    if(!r)continue;
+    const type=(g.jobId.split("-")[0]==="upscale"||g.st==="upscaling")?"upscale":"generate";
+    if(!r.file.includes("partial")&&r.ok&&r.video){if(applyResult(g,type,r)){n++;if(type==="upscale")checkJoin(g)}continue}
+    const url=r.video_url||(/^https?:/.test(r.video||"")?r.video:"");
+    if(url){try{const fp=await window.studio.downloadMedia({url,name:(g.hook||g.reveal||"clip")+"-"+type});if(applyResult(g,type,{...r,ok:true,video:fp})){n++;if(type==="upscale")checkJoin(g)}}catch(e){}}
+    else if(r.job_id)g.hf_job=r.job_id;
+  }
+  return n;
+}
+async function syncHF(){
+  if(Object.values(JOBS).some(j=>j.type==="sync")||S.ui.syncLocal)return;
+  S.ui.syncLocal=true;render();let local=0;try{local=await syncLocal()}catch(e){}S.ui.syncLocal=false;
+  if(local)toast(`Imported ${local} video${local>1?"s":""} from files on this PC. Now checking Higgsfield…`);
   const since=new Date(Date.now()-4*864e5).toISOString();
   const clips=S.gens.filter(g=>!g.joined).map(g=>({id:g.id,product:(P(g.pid)||{}).name||"",clip:g.hook||g.reveal,engine:g.engine,state:g.st,started:g.started?new Date(g.started).toISOString():"",
     job_ids:[g.job_id,...(g.history||[]).map(h=>h.job_id)].filter(Boolean),upscale_job:g.up_job||"",fix_notes:fixNotesOf(g).map(f=>({note:f.note,at:f.at?new Date(f.at).toISOString():""})),
-    prompt:(g.prompt||"").slice(0,300),has_video:!!g.video}));
-  runJob("sync","Check everything is imported",{since,clips},async r=>{
-    if(!r.ok)return;let n=0;const miss=[];
+    prompt:(g.prompt||"").slice(0,300),has_video:!!g.video,suspect:["generating","fixing","upscaling","failed"].includes(g.st)||!!g.stuck||!!g.fixErr||!!(g.fix&&!(g.history||[]).some(h=>h.note===g.fix))}));
+  const id=runJob("sync","Check everything is imported",{since,clips,maxMinutes:12},async r=>{
+    if(!r.ok){S.ui.syncInfo={n:local,miss:[r.error||"Stopped"],extra:[],at:Date.now()};render();return}let n=local;const miss=[];
     for(const m of (r.matches||[])){const g=S.gens.find(x=>x.id===m.clip_id);if(!g||!m.video_url)continue;
       if(m.kind==="upscale"&&g.st==="final"&&g.up_job===m.job_id)continue;
       if(m.kind!=="upscale"&&[g.job_id,...(g.history||[]).map(h=>h.job_id)].includes(m.job_id))continue;
@@ -704,6 +724,7 @@ function syncHF(){
       n++;if(m.kind==="upscale")checkJoin(g)}
     S.ui.syncInfo={n,miss,extra:r.unmatched||[],at:Date.now()};
     toast(n?`Imported ${n} video${n>1?"s":""} from Higgsfield`:"Everything is already in the app");render()});
+  render();
 }
 function syncInfo(){const i=S.ui.syncInfo;if(!i)return "";
   return `<div class="panel" style="margin-bottom:14px;padding:12px"><div class="row" style="justify-content:space-between"><b>${i.n?`Imported ${i.n} video${i.n>1?"s":""} from Higgsfield`:"Everything that matches your clips is already in the app"}</b><button class="btn" data-a="syncclose" style="padding:3px 10px;font-size:12px">✕</button></div>
@@ -1323,6 +1344,7 @@ $("#main").addEventListener("click",e=>{
     case"logcopy":window.studio.logTail().then(t=>navigator.clipboard.writeText(t)).then(()=>toast("Log copied. Paste it in the chat with Claude"),()=>toast("Couldn't copy the log"));return;
     case"logopen":window.studio.openLog();return;
     case"syncgo":syncHF();break;
+    case"syncstop":{const k=Object.keys(JOBS).find(x=>JOBS[x].type==="sync");if(k)window.studio.cancelJob(k);toast("Stopping…");return}
     case"syncclose":S.ui.syncInfo=null;break;
     case"upagain":gen.upErr="";LIVE.approve(b,gen.id);break;
     case"upback":Object.assign(gen,{st:"ready",stuck:false,upErr:""});toast("Back in Generations");break;
