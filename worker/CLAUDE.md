@@ -102,6 +102,7 @@ Result: `{"ok":true,"summary":"one sentence","duration":"6s","why_it_works":"the
 ### `nextclips`: ideas for the next parts of a story
 Input: `product` (full info, notes, playbook), `clip` (`name`, `prompt` that made it, `video`, `history` of fix notes), `known` (ideas already shown; give new ones), `count`.
 If `clip.planned_next` is set, the user already planned the next clip when they picked this idea: make it the first idea. Look at the clip (frames with ffmpeg if available) and its prompt. Suggest what should come NEXT to turn it into a complete ad: e.g. unboxing the product box, the reveal of how the product works (glow-in-the-dark when the lights go off, it moving, it pouring…), close-up details, a reaction, a payoff. Keep the SAME people as the clip but put each part in a DIFFERENT, fitting place (hook in the store → unboxing on the couch at home → reveal in the dark bedroom). Be creative but believable and specific to this product.
+If `revise` is given (`{idea, note}`), don't suggest new parts: return exactly one idea, the same `idea` with only what `note` asks changed (keep everything else word for word).
 Result: `{"ok":true,"ideas":[{"type":"unboxing|reveal|demo|details|reaction|payoff","title":"short","description":"what happens, 1-2 sentences","setting":"where, light","people":"who (same as the clip)","length":"5s"}]}`
 
 ### `brandkit`: one brand asset with Higgsfield

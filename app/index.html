@@ -760,7 +760,7 @@ async function boot(){
   recoverStuck();
 }
 const PART_TYPES={unboxing:"Unboxing",reveal:"Reveal",details:"Close-up details",reaction:"Reaction",payoff:"Payoff",demo:"How it works"};
-function nextBusy(g){return Object.values(JOBS).some(j=>j.type==="nextclips"&&j.gid===g.id)||S.ui.nextBusy===g.id}
+function nextBusy(g){return Object.values(JOBS).some(j=>j.type==="nextclips"&&j.gid===g.id&&j.rev==null)||S.ui.nextBusy===g.id}
 function askNext(g){
   const pr=P(g.pid);g.nextIdeas=g.nextIdeas||[];
   if(MODE==="live"&&window.studio){
@@ -778,11 +778,13 @@ function nextModal(){
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Generate further clips · part ${(g.part||1)+1}+</div><h2 style="font-size:20px;margin-top:2px">After “${esc(g.hook||g.reveal)}”</h2></div><button class="btn" data-a="nextclose" aria-label="Close">✕</button></div>
     <p class="note" style="margin:0">Claude suggests the next parts of the story: same people, new places. Tick the ones you like and press Generate. When all parts are approved and upscaled, they're joined into one video in Finals.</p>
     ${busy?`<div class="panel" style="padding:12px"><span class="scrolling"><span class="spin"></span>Claude is watching the clip and thinking of next scenes…</span></div>`:""}
-    <div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${ideas.map((it,i)=>`<label class="lcard" style="display:block;cursor:pointer" aria-pressed="${!!it.sel}">
-      <div class="row" style="justify-content:space-between"><span class="pill ${it.type==="reveal"||it.type==="demo"?"ok":it.type==="unboxing"?"cy":"pk"}">${esc(PART_TYPES[it.type]||it.type||"Part")}</span><input type="checkbox" data-nextsel="${i}" ${it.sel?"checked":""} style="width:18px;height:18px;accent-color:var(--accent2)"></div>
-      <h4 style="margin-top:6px">${esc(it.title)}</h4><p>${esc(it.description)}</p>
-      ${it.setting?`<p><b style="color:var(--fg)">Where:</b> ${esc(it.setting)}</p>`:""}${it.people?`<p><b style="color:var(--fg)">Who:</b> ${esc(it.people)}</p>`:""}<label class="f" style="margin-top:6px;max-width:160px">Length<input type="text" list="lenlist" inputmode="numeric" data-nextlen="${i}" value="${esc(it.length||"")}" placeholder="e.g. 6s"></label>
-    </label>`).join("")}</div>
+    <div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${ideas.map((it,i)=>{const tw=Object.values(JOBS).some(j=>j.type==="nextclips"&&j.gid===g.id&&j.rev===i);const ta=(k,lab,rows)=>`<label class="f" style="margin-top:6px;font-size:12px">${lab}<textarea id="nx-${k}-${i}" data-nextedit="${i}" data-k="${k}" style="min-height:${rows}px;font-size:13px">${esc(it[k]||"")}</textarea></label>`;return `<div class="lcard" style="display:block" aria-pressed="${!!it.sel}">
+      <label class="row" style="justify-content:space-between;cursor:pointer"><span class="pill ${it.type==="reveal"||it.type==="demo"?"ok":it.type==="unboxing"?"cy":"pk"}">${esc(PART_TYPES[it.type]||it.type||"Part")}</span><input type="checkbox" data-nextsel="${i}" ${it.sel?"checked":""} style="width:18px;height:18px;accent-color:var(--accent2)"></label>
+      <h4 style="margin-top:6px">${esc(it.title)}</h4>
+      ${tw?`<div class="scrolling" style="font-size:12px;margin:8px 0"><span class="spin"></span>Claude is changing this part…</div>`:`${ta("description","What happens",90)}${ta("setting","Where",44)}${ta("people","Who",44)}
+      <label class="f" style="margin-top:6px;max-width:160px">Length<input type="text" list="lenlist" inputmode="numeric" data-nextlen="${i}" value="${esc(it.length||"")}" placeholder="e.g. 6s"></label>
+      <div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:8px"><input type="text" id="nx-t-${i}" placeholder="Or tell Claude, e.g. no whiskey, only 2 friends" style="font-size:13px"><button type="button" class="btn" data-a="nexttweak" data-i="${i}" style="flex:none">Change</button></div>`}
+    </div>`}).join("")}</div>
     ${!ideas.length&&!busy?'<p class="note">No suggestions yet.</p>':""}
     ${S.ui.nextAdd?`<div class="addform" style="background:var(--panel2);padding:12px;border-radius:12px">
       <label class="f">Type<select id="np2-type">${Object.entries(PART_TYPES).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></label>
@@ -1273,6 +1275,10 @@ $("#main").addEventListener("click",e=>{
     case"failrm":S.gens=S.gens.filter(x=>x!==gen);break;
     case"failretry":{const R=gen.retry;S.gens=S.gens.filter(x=>x!==gen);const keep=S.concept.pid;S.concept.pid=gen.pid;genOne(R.x,R.kind,R.engine,R.changes);S.concept.pid=keep;break}
     case"upstop":{const jid=gen.jobId;if(jid&&JOBS[jid]){delete JOBS[jid];window.studio.cancelJob(jid)}gen.stuck=false;getFromHiggsfield(gen);toast("Fetching the upscaled video from Higgsfield");break}
+    case"nexttweak":{const g=S.gens.find(x=>x.id===S.ui.nextFor);const i=+b.dataset.i,it=g&&g.nextIdeas[i];const inp=$("#nx-t-"+i),note=inp?inp.value.trim():"";if(!it)return;if(!note){toast("Type what to change first");if(inp)inp.focus();return}
+      if(MODE!=="live"||!window.studio){toast("Only in Live mode");return}if(inp)inp.value="";const pr=P(g.pid);
+      const id=runJob("nextclips","Change part · "+it.title,{product:productInfo(pr),clip:{name:g.hook||g.reveal,prompt:g.prompt||"",video:g.video||""},revise:{idea:it,note},count:1},r=>{if(r.ok&&r.ideas&&r.ideas[0]){const k=g.nextIdeas.indexOf(it);if(k>=0)g.nextIdeas[k]={...r.ideas[0],sel:it.sel};toast("Part changed")}});
+      JOBS[id].gid=g.id;JOBS[id].rev=i;break}
     case"upagain":gen.upErr="";LIVE.approve(b,gen.id);break;
     case"upback":Object.assign(gen,{st:"ready",stuck:false,upErr:""});toast("Back in Generations");break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;
@@ -1303,6 +1309,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.dataset&&t.dataset.ideaedit!=null){const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+t.dataset.ideaedit];if(it&&t.value.trim()!==it.pitch){it.pitch=t.value.trim();it.edited=true;save()}return}
   if(t.dataset&&t.dataset.resethour!=null){S.resetHour=+t.value;save();render();return}
   if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
+  if(t.dataset&&t.dataset.nextedit!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);const it=g&&g.nextIdeas[+t.dataset.nextedit];if(it){it[t.dataset.k]=t.value.trim();save()}return}
   if(t.dataset&&t.dataset.nextlen!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);const it=g&&g.nextIdeas[+t.dataset.nextlen];if(it){it.length=secs(t.value)||it.length;t.value=it.length}save();return}
   if(t.dataset&&t.dataset.nextsel!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);if(g&&g.nextIdeas[+t.dataset.nextsel])g.nextIdeas[+t.dataset.nextsel].sel=t.checked;render();return}
   if(t.dataset&&t.dataset.finsel){const id=t.dataset.finsel;S.ui.finSel=S.ui.finSel||[];S.ui.finSel=t.checked?[...S.ui.finSel,id]:S.ui.finSel.filter(x=>x!==id);render();return}
