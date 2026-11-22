@@ -476,7 +476,7 @@ ipcMain.handle('job:start', (e, job) => {
   let sessionId = '';
   if (s.allowedTools.trim()) args.push('--allowedTools', ...s.allowedTools.trim().split(/\s+/));
   // Jobs that browse Instagram, TikTok, the web or the Higgsfield website need the user's Chrome.
-  const chromeJobs = ['scroll', 'findclips', 'handles', 'usernames', 'competitors', 'recover'];
+  const chromeJobs = ['scroll', 'findclips', 'handles', 'usernames', 'competitors', 'recover', 'sync'];
   const unlimWeb = ['generate', 'fix'].includes(job.type) && s.useUnlim !== false && job.input && /seedance/i.test(job.input.engine || 'Seedance');
   if (s.useChrome && (chromeJobs.includes(job.type) || unlimWeb || (job.input && job.input.useChrome))) args.push('--chrome');
   const prompt = `You are the Viral Studio worker. Read CLAUDE.md in this folder, then do job ${id} (jobs/${id}.json). Write results/${id}.json exactly as CLAUDE.md describes, then stop.`;
@@ -556,6 +556,19 @@ ipcMain.handle('job:result', (_e, id) => {
     try { return { file: f, ...JSON.parse(fs.readFileSync(path.join(ws(), 'results', f), 'utf8')) }; } catch (_) { /* not there */ }
   }
   return null;
+});
+// Download a finished video from a URL into the work folder.
+ipcMain.handle('media:download', async (_e, { url, name }) => {
+  if (!/^https?:\/\//.test(url || '')) throw new Error('Not a web link');
+  const res = await net.fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const ct = String(res.headers.get('content-type') || '');
+  if (buf.length < 10000 || /text\/html|json/i.test(ct)) throw new Error('That link is not a video file');
+  fs.mkdirSync(path.join(ws(), 'media'), { recursive: true });
+  const rel = `media/${String(name || 'sync').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)}-${Date.now().toString(36)}.mp4`;
+  fs.writeFileSync(path.join(ws(), rel), buf);
+  return rel;
 });
 ipcMain.handle('log:open', () => { shell.showItemInFolder(path.join(app.getPath('userData'), 'viral-studio.log')); return true; });
 ipcMain.handle('log:tail', () => { try { return fs.readFileSync(path.join(app.getPath('userData'), 'viral-studio.log'), 'utf8').split('\n').slice(-80).join('\n'); } catch (_) { return ''; } });

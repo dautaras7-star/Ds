@@ -481,7 +481,7 @@ concepts(){
 generations(){
   const list=S.gens.filter(g=>!["final","upscaling"].includes(g.st));
   const groups=S.products.filter(p=>list.some(g=>g.pid===p.id));
-  return `<div class="head"><div><h1>Generations</h1><p class="sub">New clips. Approve sends a clip to upscale and then to Finals. Fix keeps it here until you approve it. Drop deletes it.</p></div><span class="example">Example data</span></div>
+  return `<div class="head"><div><h1>Generations</h1><p class="sub">New clips. Approve sends a clip to upscale and then to Finals. Fix keeps it here until you approve it. Drop deletes it.</p></div>${syncBtn()}<span class="example">Example data</span></div>${syncInfo()}
   ${groups.length?groups.map(p=>`<section class="ggroup"><div class="ggroup-h">${logo(p)}<h2 style="font-size:17px">${esc(p.name)}</h2></div><div class="vids">${list.filter(g=>g.pid===p.id).map(gTile).join("")}</div></section>`).join(""):'<div class="empty">Nothing waiting. Generate videos in Concepts.</div>'}`;
 },
 finals(){
@@ -498,7 +498,7 @@ finals(){
       :S.ui.finDel===g.id?`<div class="confirm">Delete this final for good?</div><div class="row fill"><button class="btn" data-a="findelno">Keep</button><button class="btn bad" data-a="findelyes" data-id="${g.id}">Delete</button></div>`
       :`<div class="row fill">${!g.joined&&g.video?`<button class="btn cy" data-a="further" data-id="${g.id}" style="width:100%;margin-bottom:6px">✨ Generate further clips</button>`:""}${g.drive?`<button class="btn ok" data-a="send" data-id="${g.id}" title="Send again">Sent ✓</button>`:`<button class="btn pri" data-a="send" data-id="${g.id}">${g.sending?"Sending…":"Send to Photos"}</button>`}<button class="btn bad" data-a="findel" data-id="${g.id}" aria-label="Delete">Delete</button></div>${g.drive?"":`<button class="btn" data-a="unfinal" data-id="${g.id}" style="font-size:12px;padding:5px">Back to Generations</button>`}`}
   </div>`};
-  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled (Topaz Starlight Precise · 1080p · 60 FPS by default, see Connection). Send to Photos saves the video to your Finals folder; Google Drive for desktop (with &quot;Back up to Google Photos&quot; on) uploads it to Google Photos.</p></div><div class="row"><span class="example">Example data</span><button class="btn" data-a="openexport">Open Finals folder</button><a class="btn" href="https://photos.google.com/" target="_blank" rel="noopener">Open Google Photos ↗</a></div></div>
+  return `<div class="head"><div><h1>Finals</h1><p class="sub">Approved and upscaled (Topaz Starlight Precise · 1080p · 60 FPS by default, see Connection). Send to Photos saves the video to your Finals folder; Google Drive for desktop (with &quot;Back up to Google Photos&quot; on) uploads it to Google Photos.</p></div><div class="row"><span class="example">Example data</span>${syncBtn()}<button class="btn" data-a="openexport">Open Finals folder</button><a class="btn" href="https://photos.google.com/" target="_blank" rel="noopener">Open Google Photos ↗</a></div></div>${syncInfo()}
   ${selectable.length?`<div class="row panel" style="margin-bottom:16px;padding:10px 14px">
     <label class="check"><input type="checkbox" data-a="finall" ${allOn?"checked":""}>Select all (${selectable.length})</label>
     <span class="note">${selList.length} selected</span><span class="sp"></span>
@@ -681,6 +681,34 @@ const CONN={
 document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e.preventDefault();
   SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked,upscaleMethod:$("#st-upm").value,upscaleModel:$("#st-upmodel").value.trim()||"Topaz Starlight Precise",upscaleRes:$("#st-upres").value,upscaleFps:$("#st-upfps").value,useUnlim:$("#st-unlim").checked});
   toast("Settings saved");render()});
+function syncBtn(){
+  if(MODE!=="live"||!window.studio)return "";
+  const busy=Object.values(JOBS).some(j=>j.type==="sync");
+  return busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Checking Higgsfield…</span>`:`<button class="btn" data-a="syncgo" title="Find videos that finished on Higgsfield but never reached the app">🔄 Check everything is imported</button>`;
+}
+function syncHF(){
+  if(Object.values(JOBS).some(j=>j.type==="sync"))return;
+  const since=new Date(Date.now()-4*864e5).toISOString();
+  const clips=S.gens.filter(g=>!g.joined).map(g=>({id:g.id,product:(P(g.pid)||{}).name||"",clip:g.hook||g.reveal,engine:g.engine,state:g.st,started:g.started?new Date(g.started).toISOString():"",
+    job_ids:[g.job_id,...(g.history||[]).map(h=>h.job_id)].filter(Boolean),upscale_job:g.up_job||"",fix_notes:fixNotesOf(g).map(f=>({note:f.note,at:f.at?new Date(f.at).toISOString():""})),
+    prompt:(g.prompt||"").slice(0,300),has_video:!!g.video}));
+  runJob("sync","Check everything is imported",{since,clips},async r=>{
+    if(!r.ok)return;let n=0;const miss=[];
+    for(const m of (r.matches||[])){const g=S.gens.find(x=>x.id===m.clip_id);if(!g||!m.video_url)continue;
+      if(m.kind==="upscale"&&g.st==="final"&&g.up_job===m.job_id)continue;
+      if(m.kind!=="upscale"&&[g.job_id,...(g.history||[]).map(h=>h.job_id)].includes(m.job_id))continue;
+      let fp;try{fp=await window.studio.downloadMedia({url:m.video_url,name:(g.hook||g.reveal||"clip")+"-"+m.kind})}catch(e){miss.push((g.hook||g.reveal)+": "+String(e.message||e).replace(/^Error invoking remote method[^:]*: (Error: )?/,""));continue}
+      if(m.kind==="upscale")Object.assign(g,{st:"final",video:fp,up_job:m.job_id||"",stuck:false,upErr:"",drive:false});
+      else if(m.kind==="fix"){g.history=g.history||[];if(!g.history.length&&g.video)g.history.push({v:1,video:g.video,prompt:g.prompt||"",job_id:g.job_id||"",note:""});g.history.push({v:g.history.length+1,video:fp,prompt:m.prompt||"",job_id:m.job_id||"",note:m.note||"",at:Date.now()});Object.assign(g,{st:g.st==="final"?"final":"ready",video:fp,job_id:m.job_id||g.job_id,prompt:m.prompt||g.prompt,fixErr:"",stuck:false,res:m.resolution||g.res})}
+      else Object.assign(g,{st:g.st==="final"?"final":"ready",video:fp,job_id:m.job_id||g.job_id,prompt:m.prompt||g.prompt,stuck:false,res:m.resolution||g.res,dur:m.duration||g.dur});
+      n++;if(m.kind==="upscale")checkJoin(g)}
+    S.ui.syncInfo={n,miss,extra:r.unmatched||[],at:Date.now()};
+    toast(n?`Imported ${n} video${n>1?"s":""} from Higgsfield`:"Everything is already in the app");render()});
+}
+function syncInfo(){const i=S.ui.syncInfo;if(!i)return "";
+  return `<div class="panel" style="margin-bottom:14px;padding:12px"><div class="row" style="justify-content:space-between"><b>${i.n?`Imported ${i.n} video${i.n>1?"s":""} from Higgsfield`:"Everything that matches your clips is already in the app"}</b><button class="btn" data-a="syncclose" style="padding:3px 10px;font-size:12px">✕</button></div>
+    ${i.miss.length?`<div class="note" style="color:var(--warn)">Couldn't download: ${i.miss.map(esc).join("; ")}</div>`:""}
+    ${i.extra.length?`<div class="note" style="margin-top:6px">On Higgsfield but not matched to any clip here (${i.extra.length}):</div><ul style="margin:4px 0 0 18px;font-size:13px">${i.extra.slice(0,10).map(x=>`<li>${esc(x.when||"")} · ${esc(x.kind||"")} · ${esc((x.prompt||"").slice(0,90))}</li>`).join("")}</ul>`:""}</div>`}
 function applyResult(g,type,r){
   if(!r||!r.ok)return false;
   if(type==="upscale"){Object.assign(g,{st:"final",video:r.video,up_job:r.job_id,drive:false,stuck:false});return true}
@@ -1294,6 +1322,8 @@ $("#main").addEventListener("click",e=>{
         else Object.assign(g,{st:"ready",fixErr:(r&&r.error)||"Couldn't find it on Higgsfield"})});break}
     case"logcopy":window.studio.logTail().then(t=>navigator.clipboard.writeText(t)).then(()=>toast("Log copied. Paste it in the chat with Claude"),()=>toast("Couldn't copy the log"));return;
     case"logopen":window.studio.openLog();return;
+    case"syncgo":syncHF();break;
+    case"syncclose":S.ui.syncInfo=null;break;
     case"upagain":gen.upErr="";LIVE.approve(b,gen.id);break;
     case"upback":Object.assign(gen,{st:"ready",stuck:false,upErr:""});toast("Back in Generations");break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;
