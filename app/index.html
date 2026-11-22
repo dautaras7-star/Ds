@@ -521,6 +521,7 @@ connection(){
   ${!inApp?'<div class="panel" style="margin-bottom:16px;color:var(--warn)">You are viewing this outside the desktop app, so Live mode is off.</div>':""}
   <div class="conn">
     ${window.studio&&window.studio.recoverScan?recoverPanel():""}
+    ${window.studio&&window.studio.logTail?`<section class="panel" style="grid-column:1/-1"><h3>App log</h3><p class="note" style="margin-top:-4px">If something didn't come back to the app, copy the log and send it to Claude in chat.</p><div class="row"><button class="btn pri" data-a="logcopy">Copy last log lines</button><button class="btn" data-a="logopen">Show log file</button></div></section>`:""}
     <section class="panel"><h3>Mode</h3>
       <div class="opts"><button class="chip" aria-pressed="${MODE==="example"}" data-a="mode" data-v="example">Example data</button><button class="chip" aria-pressed="${MODE==="live"}" data-a="mode" data-v="live" ${inApp?"":"disabled"}>Live · Claude Code</button></div>
       <p class="note" style="margin-top:8px">Example data and Live data are kept separate. Switching doesn't delete either.</p>
@@ -1291,6 +1292,8 @@ $("#main").addEventListener("click",e=>{
       g.jobId=runJob("recover",`Find the fix on Higgsfield · ${g.hook||g.reveal}`,{kind:"fix",higgsfield_job_id:g.hf_job||"",since:(()=>{const t=g.fixAt||((fixNotesOf(g).slice(-1)[0]||{}).at);return t?new Date(t-60000).toISOString():""})(),product:pr?pr.name:"",clip:g.hook||g.reveal,engine:g.engine,note},r=>{
         if(r&&r.ok&&r.video){g.history=g.history||[];g.history.push({v:g.history.length+1,video:r.video,prompt:r.prompt||"",job_id:r.job_id||"",note,at:Date.now()});Object.assign(g,{st:"ready",video:r.video,job_id:r.job_id||g.job_id,prompt:r.prompt||g.prompt,dur:r.duration||g.dur,res:r.resolution||g.res,unlim:!!r.unlimited});toast("Got the fixed version")}
         else Object.assign(g,{st:"ready",fixErr:(r&&r.error)||"Couldn't find it on Higgsfield"})});break}
+    case"logcopy":window.studio.logTail().then(t=>navigator.clipboard.writeText(t)).then(()=>toast("Log copied. Paste it in the chat with Claude"),()=>toast("Couldn't copy the log"));return;
+    case"logopen":window.studio.openLog();return;
     case"upagain":gen.upErr="";LIVE.approve(b,gen.id);break;
     case"upback":Object.assign(gen,{st:"ready",stuck:false,upErr:""});toast("Back in Generations");break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;

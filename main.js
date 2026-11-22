@@ -510,6 +510,8 @@ ipcMain.handle('job:start', (e, job) => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const buf = Buffer.from(await res.arrayBuffer());
         if (buf.length < 10000) throw new Error('file too small');
+        const ct = String(res.headers.get('content-type') || '');
+        if (/text\/html|json/i.test(ct) || buf.subarray(0, 64).toString('latin1').includes('<!DOCTYPE')) throw new Error('that link is a web page, not the video file');
         fs.mkdirSync(path.join(ws(), 'media'), { recursive: true });
         const rel = `media/${id}${job.type === 'upscale' || (job.input && job.input.kind === 'upscale') ? '-upscaled' : ''}.mp4`;
         fs.writeFileSync(path.join(ws(), rel), buf);
@@ -555,6 +557,8 @@ ipcMain.handle('job:result', (_e, id) => {
   }
   return null;
 });
+ipcMain.handle('log:open', () => { shell.showItemInFolder(path.join(app.getPath('userData'), 'viral-studio.log')); return true; });
+ipcMain.handle('log:tail', () => { try { return fs.readFileSync(path.join(app.getPath('userData'), 'viral-studio.log'), 'utf8').split('\n').slice(-80).join('\n'); } catch (_) { return ''; } });
 ipcMain.handle('job:running', () => [...running.keys()]);
 ipcMain.handle('job:cancel', (_e, id) => {
   const c = running.get(id);

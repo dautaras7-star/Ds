@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('studio', {
   platform: process.platform,
-  version: '0.20.5',
+  version: '0.20.6',
   checkClaude: () => ipcRenderer.invoke('cc:check'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (s) => ipcRenderer.invoke('settings:set', s),
@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('studio', {
   gpUploadImage: (o) => ipcRenderer.invoke('gp:uploadImage', o),
   exportImage: (o) => ipcRenderer.invoke('image:export', o),
   trimVideo: (o) => ipcRenderer.invoke('video:trim', o),
+  openLog: () => ipcRenderer.invoke('log:open'),
+  logTail: () => ipcRenderer.invoke('log:tail'),
   joinVideos: (o) => ipcRenderer.invoke('video:join', o),
   recoverScan: () => ipcRenderer.invoke('recover:scan'),
   recoverJobs: () => ipcRenderer.invoke('recover:jobs'),
