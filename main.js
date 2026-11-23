@@ -102,8 +102,8 @@ function runClaude(args, input, onLine) {
   });
   let err = '';
   child.stderr.on('data', (d) => { err += d.toString(); });
-  if (input != null) { child.stdin.write(input); }
-  child.stdin.end();
+  child.stdin.on('error', (e) => { err += '\n' + String(e && e.message || e); }); // Claude exited before reading its input
+  try { if (input != null) child.stdin.write(input); child.stdin.end(); } catch (_) {}
   return { child, stderr: () => err };
 }
 

@@ -649,7 +649,7 @@ const LIVE={
     g.history=g.history||[];if(!g.history.length&&g.video)g.history.push({v:1,video:g.video,prompt:g.prompt||"",job_id:g.job_id||"",note:"",at:Date.now()});
     g.fixNotes=fixNotesOf(g);g.fixNotes.push({note,at:Date.now(),v:(g.history||[]).length+1});g.fix=note;g.st="fixing";S.ui.fixOpen=null;g.started=Date.now();g.stuck=false;
     const hx=S.hooks.find(h=>h.name===g.hook),rx=S.reveals.find(h=>h.name===g.reveal);
-    g.jobId=runJob("fix",`Fix v${g.history.length+1} · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:"",clip:hx?hx.clip||"":"",spec:hx?hx.spec||null:null}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:"",clip:rx?rx.clip||"":"",spec:rx?rx.spec||null:null}:null,
+    g.jobId=runJob("fix",`Fix v${g.history.length+1} · ${g.hook||g.reveal}`,{product:productInfo(pr),hook:g.hook?{name:g.hook,desc:hx?hx.desc:(g.ownDesc||""),clip:hx?hx.clip||"":"",spec:hx?hx.spec||null:(g.ownSpec||null)}:null,reveal:g.reveal?{name:g.reveal,desc:rx?rx.desc:(g.ownDesc||""),clip:rx?rx.clip||"":"",spec:rx?rx.spec||null:(g.ownSpec||null)}:null,
       changes:g.changes||{},engine:g.engine,source:pr.url||"",note,
       resume_session:g.session||"",previous_video:g.video||"",previous_prompt:g.prompt||"",previous_job_id:g.job_id||"",
       history:g.history.map(h=>({version:h.v,note:h.note,prompt:h.prompt,job_id:h.job_id})),
@@ -957,7 +957,7 @@ function ownClipModal(){
       <div class="two">${txt("oc-feat","Feature that must be visible","e.g. truck drives around the loop and stops at each glass")}<label class="check" style="margin-top:18px"><input type="checkbox" id="oc-box">Show the box / packaging</label></div>`)}
     ${grp("Mood",`<div class="two">${sel("oc-mood","Mood",["Claude decides","Funny","Shocked","Wholesome","Satisfying","ASMR","Dramatic","Romantic"],"Claude decides")}${txt("oc-avoid","Avoid","e.g. no kids, no alcohol pouring close-up")}</div>`)}
     ${pr?"":`<p style="color:var(--warn)">No product picked yet: you can save the clip now and generate later.</p>`}
-    <div class="row" style="justify-content:flex-end"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn big" data-a="ownclipgo1" ${pr?"":"disabled"} title="Generate it without saving it to your Hooks/Reveals">Generate only once</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div>
   </div></div>`;
 }
 function ownClipFields(){
@@ -981,7 +981,7 @@ function ownClipFill(){
     toast(`Filled in ${n} fields. Change anything you don't like, then Save & generate`)});
   render();
 }
-async function readOwnClip(){
+async function readOwnClip(saveIt=true){
   const v=id=>(($("#"+id)||{}).value||"").trim(),c=id=>!!($("#"+id)||{}).checked;
   const desc=v("oc-desc");if(!desc){toast("Describe what happens first");return null}
   const keep=x=>x&&x!=="Claude decides"?x:"";
@@ -996,7 +996,7 @@ async function readOwnClip(){
   const kind=spec.type==="Reveal"?"rev":"hook";
   const x={id:uid(),name:v("oc-name")||desc.slice(0,40),desc,fits:"My own clip",own:true,full:spec.type==="Full video",spec,bg:G("#2a1d3d","#0b0b10")};
   const src=($("#oc-src")||{}).files;if(src&&src[0]){try{const fp=await saveClip(src[0]);if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=src[0].name}catch(e){toast("Couldn't save the source clip")}}
-  (kind==="hook"?S.hooks:S.reveals).unshift(x);
+  if(saveIt)(kind==="hook"?S.hooks:S.reveals).unshift(x);
   return {x,kind,spec};
 }
 function secs(t){const n=parseFloat(String(t||"").replace(",","."));return n>0?Math.round(n)+"s":""}
@@ -1056,7 +1056,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
   if(!pr){toast("Pick a product at the top of Concepts first (its brand kit must be finished)");return false}
   if(MODE==="live"&&!window.studio){toast("Live mode only works in the desktop app");return false}
   const isHook=kind==="hook";
-  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,changes,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
+  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,changes,ownSpec:x.spec||null,ownDesc:x.desc||"",dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
   S.gens.unshift(g);S.ui.genFor=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
@@ -1345,6 +1345,7 @@ $("#main").addEventListener("click",e=>{
     case"ownclipfill":ownClipFill();return;
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
+    case"ownclipgo1":readOwnClip(false).then(r=>{if(!r)return;S.ui.ownClip=false;let ok=false;for(let i=0;i<r.spec.versions;i++)ok=genOne(r.x,r.kind,r.spec.engine,{})||ok;if(ok)location.hash="generations";render()});return;
     case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;let ok=false;for(let i=0;i<r.spec.versions;i++)ok=genOne(r.x,r.kind,r.spec.engine,{})||ok;if(ok)location.hash="generations";render()});return;
     case"hfget":if(!window.studio){toast("Only works in the desktop app");return}getFromHiggsfield(gen);break;
     case"failrm":S.gens=S.gens.filter(x=>x!==gen);break;
