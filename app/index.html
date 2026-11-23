@@ -934,7 +934,8 @@ function ownClipModal(){
     <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Write my own clip${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">Describe it, Claude makes it</h2></div><button class="btn" data-a="ownclipclose" aria-label="Close">✕</button></div>
     <div class="row" style="justify-content:space-between"><p class="note" style="margin:0">Only the description is required. Click options or type your own; anything empty, Claude decides.</p>${suggBar(pr,null)}</div>
     ${grp("Basics",`<div class="two">${txt("oc-name","Clip name","e.g. Grandpa finds the truck")}${sel("oc-type","Type",["Hook","Reveal","Full video"],"Hook")}</div>
-      ${area("oc-desc","What happens? *","Describe the clip in your own words: who, where, what they do, what we see")}
+      <label class="f">What happens? *<textarea id="oc-desc" placeholder="Roughly describe the clip, then press Enter: Claude fills in every section below (Shift+Enter for a new line)"></textarea></label>
+      <div class="row" style="justify-content:space-between;margin-top:-4px">${Object.values(JOBS).some(j=>j.type==="ownclipfill")?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Claude is writing all sections…</span>`:`<span class="note" style="margin:0">Press Enter or the button: Claude fills in everything, you change what you don't like.</span><button type="button" class="btn cy" data-a="ownclipfill">✨ Fill in all sections</button>`}</div>
       <div class="two">${sel("oc-engine","Engine",["Seedance","Genjutsu"],"Seedance")}${sel("oc-count","How many versions",["1","2","3","4"],"1")}</div>
       <label class="f">Source clip for Genjutsu (optional)<input type="file" id="oc-src" accept="video/*"></label>`,true)}
     ${grp("Length & structure",`<div class="two"><label class="f">Total length (seconds)<input type="text" id="oc-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label>${sel("oc-shots","Number of shots",["Claude decides","1 (one take)","2","3","4","5","6+"],"Claude decides")}</div>
@@ -947,7 +948,7 @@ function ownClipModal(){
       <div class="two">${sel("oc-time","Time of day",["Claude decides","Morning","Day","Golden hour","Evening","Night"],"Claude decides")}${sel("oc-light","Lighting",["Neutral white 5000K (default)","Natural window light","Bright daylight","Moody / dim","Party lights"],"Neutral white 5000K (default)")}</div>
       ${txt("oc-season","Season / weather","e.g. Christmas, snowy outside")}`)}
     ${grp("Camera",`<div class="two">${sel("oc-style","Style",["Handheld phone UGC","Tripod / static","Selfie","First-person POV","Over the shoulder","Top-down"],"Handheld phone UGC")}${sel("oc-move","Movement",["Claude decides","Static","Handheld shake","Slow pan","Push-in","Follow the action"],"Claude decides")}</div>
-      <div><div class="note" style="margin-bottom:6px">Angles to include</div><div class="opts">${OC_ANGLES.map((a,i)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" class="oc-angle" value="${a}" style="margin-right:6px">${a}</label>`).join("")}</div></div>`)}
+      <div><div class="note" style="margin-bottom:6px">Angles to include</div><div class="opts">${OC_ANGLES.map((a,i)=>`<label class="chip" style="cursor:pointer"><input type="checkbox" class="oc-angle" id="oc-angle-${i}" value="${a}" style="margin-right:6px">${a}</label>`).join("")}</div></div>`)}
     ${grp("Sound & dialogue",`<div class="two">${sel("oc-dlg","Dialogue",["Claude decides","None","One line","Conversation"],"Claude decides")}${sel("oc-accent","Accent",["American","British","Australian","Other / any"],"American")}</div>
       <div>${chips("oc-script",suggFor(pr).script)}${area("oc-script","Script (exact words)","e.g. Wife: \"Don't tell my husband…\"")}</div>
       <div class="two">${sel("oc-vo","Voiceover narrator",["No","Yes"],"No")}${sel("oc-music","Music",["None (default)","Light background music"],"None (default)")}</div>
@@ -958,6 +959,27 @@ function ownClipModal(){
     ${pr?"":`<p style="color:var(--warn)">No product picked yet: you can save the clip now and generate later.</p>`}
     <div class="row" style="justify-content:flex-end"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div>
   </div></div>`;
+}
+function ownClipFields(){
+  const out={};document.querySelectorAll('.modal [id^="oc-"]').forEach(el=>{if(el.type==="file"||el.id==="oc-desc"||el.classList.contains("oc-angle"))return;const lab=(el.closest("label")||{}).textContent||"";
+    out[el.id]={label:lab.replace(/\s+/g," ").trim().slice(0,60),type:el.tagName==="SELECT"?"choice":el.type==="checkbox"?"yes/no":"text",options:el.tagName==="SELECT"?[...el.options].map(o=>o.value):undefined}});
+  out.angles={label:"Angles to include (pick any)",type:"list",options:OC_ANGLES};return out}
+function ownClipFill(){
+  const d=(($("#oc-desc")||{}).value||"").trim();if(!d){toast("Describe the clip first");return}
+  if(MODE!=="live"||!window.studio){toast("Claude fills this in Live mode");return}
+  if(Object.values(JOBS).some(j=>j.type==="ownclipfill"))return;
+  const pr=P(S.concept.pid),cur={};document.querySelectorAll('.modal [id^="oc-"]').forEach(el=>{if(el.type==="file"||el.classList.contains("oc-angle"))return;const v=el.type==="checkbox"?el.checked:el.value;if(v&&v!=="Claude decides")cur[el.id]=v});
+  runJob("ownclipfill","Write my clip · "+d.slice(0,40),{product:pr?productInfo(pr):null,description:d,type:($("#oc-type")||{}).value||"Hook",engine:($("#oc-engine")||{}).value||"Seedance",fields:ownClipFields(),current:cur},r=>{
+    if(!r.ok||!r.values)return;let n=0;
+    for(const [k,v] of Object.entries(r.values)){
+      if(k==="angles"){const want=new Set([].concat(v||[]));document.querySelectorAll(".oc-angle").forEach(c=>{c.checked=want.has(c.value)});continue}
+      const el=document.getElementById(k);if(!el||k==="oc-desc"||el.type==="file")continue;
+      if(el.type==="checkbox")el.checked=!!v;
+      else if(el.tagName==="SELECT"){if([...el.options].some(o=>o.value===v))el.value=v;else continue}
+      else el.value=String(v??"");n++}
+    document.querySelectorAll(".modal details.ocgrp").forEach(d=>d.open=true);
+    toast(`Filled in ${n} fields. Change anything you don't like, then Save & generate`)});
+  render();
 }
 async function readOwnClip(){
   const v=id=>(($("#"+id)||{}).value||"").trim(),c=id=>!!($("#"+id)||{}).checked;
@@ -1320,6 +1342,7 @@ $("#main").addEventListener("click",e=>{
       const left=miss.length-n;toast(n?`Attached ${n} clip${n===1?"":"s"}${left?` · ${left} not found, use Re-attach clips`:""}`:"No matching files found. Use Re-attach clips and pick them");render()})();return;
     case"relinkclose":S.ui.relinkOpen=false;PENDING_CLIPS=[];toast("Clips attached");break;
     case"ownclip":{S.ui.ownClip=true;const pr=P(S.concept.pid);if(pr&&!pr.sugg)askSugg(pr,null);break}
+    case"ownclipfill":ownClipFill();return;
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
     case"ownclipgo":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;let ok=false;for(let i=0;i<r.spec.versions;i++)ok=genOne(r.x,r.kind,r.spec.engine,{})||ok;if(ok)location.hash="generations";render()});return;
@@ -1406,7 +1429,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip||S.ui.nextFor)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;S.ui.nextFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if(e.target&&e.target.id==="oc-desc"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();ownClipFill();return}if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip||S.ui.nextFor)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;S.ui.nextFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 document.addEventListener("error",e=>{const v=e.target;if(!v||v.tagName!=="VIDEO"||!v.closest(".lcard"))return;const pl=v.parentNode;if(pl.querySelector(".playerr"))return;pl.insertAdjacentHTML("beforeend",'<span class="note playerr" style="position:absolute;inset:auto 4px 6px;text-align:center;z-index:3;font-size:10px;color:var(--bad)">Can\'t play this file</span>')},true);
 // Drag hook/reveal cards to reorder them (order is saved).
 let DRAG=null;
