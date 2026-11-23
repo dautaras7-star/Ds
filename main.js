@@ -309,6 +309,21 @@ ipcMain.handle('gp:upload', async (_e, { src, product, name }) => {
 });
 
 // ---------- bundled ffmpeg (joining parts; also put on Claude's PATH) ----------
+// Read a JSON file Claude wrote, whatever tool wrote it: UTF-8 (with or without BOM), UTF-16 (PowerShell), or JSON wrapped in other text.
+function readJsonFile(file) {
+  const buf = fs.readFileSync(file);
+  let text;
+  if (buf[0] === 0xff && buf[1] === 0xfe) text = buf.subarray(2).toString('utf16le');
+  else if (buf[0] === 0xfe && buf[1] === 0xff) { const b = Buffer.from(buf.subarray(2)); b.swap16(); text = b.toString('utf16le'); }
+  else if (buf.length > 3 && buf[1] === 0 && buf[3] === 0) text = buf.toString('utf16le');
+  else text = buf.toString('utf8');
+  text = text.replace(/^﻿/, '').replace(/\u0000/g, '').trim();
+  try { return JSON.parse(text); } catch (_) {}
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a >= 0 && b > a) return JSON.parse(text.slice(a, b + 1));
+  throw new Error('not JSON');
+}
+
 function ffmpegPath() {
   try { const p = require('ffmpeg-static'); return p ? p.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep) : ''; } catch (_) { return ''; }
 }
@@ -500,7 +515,7 @@ ipcMain.handle('job:start', (e, job) => {
     let busyDl = false;
     poll = setInterval(async () => {
       if (busyDl || running.get(id) !== child) return;
-      let part; try { part = JSON.parse(fs.readFileSync(path.join(ws(), 'results', id + '.partial.json'), 'utf8')); } catch (_) { return; }
+      let part; try { part = readJsonFile(path.join(ws(), 'results', id + '.partial.json')); } catch (_) { return; }
       const url = part && (part.video_url || part.video);
       if (!url || !/^https?:\/\//.test(url)) return;
       busyDl = true;
@@ -518,7 +533,7 @@ ipcMain.handle('job:start', (e, job) => {
         if (!fs.existsSync(resultPath)) fs.writeFileSync(resultPath, JSON.stringify({ ...part, ok: true, video: rel, video_url: url, job_id: part.job_id || '', downloaded_by: 'app' }));
         log(`job ${id} upscale downloaded by app (${buf.length} bytes)`);
         clearInterval(poll); finished = true; running.delete(id);
-        let result; try { result = JSON.parse(fs.readFileSync(resultPath, 'utf8')); } catch (_) { result = { ok: true, video: rel }; }
+        let result; try { result = readJsonFile(resultPath); } catch (_) { result = { ok: true, video: rel }; }
         if (sessionId) result._session = sessionId;
         send({ kind: 'done', result }); killTree(child);
       } catch (err) { log(`job ${id} app download failed: ${err}`); busyDl = false; }
@@ -531,13 +546,35 @@ ipcMain.handle('job:start', (e, job) => {
     log(`job ${id} spawn error ${err}`);
     send({ kind: 'done', result: { ok: false, error: "Couldn't start Claude Code. Check the Connection page." } });
   });
-  child.on('close', (code) => {
+  child.on('close', async (code) => {
     running.delete(id);
     if (poll) clearInterval(poll);
     if (finished) return;
     let result;
-    try { result = JSON.parse(fs.readFileSync(resultPath, 'utf8')); }
+    try { result = readJsonFile(resultPath); }
     catch (_) {
+      // No final file: maybe it was saved under another name, or only the partial file has the video link.
+      try {
+        const alt = fs.readdirSync(path.join(ws(), 'results')).filter((f) => f.startsWith(id) && f !== id + '.partial.json' && f.endsWith('.json'));
+        for (const f of alt) { try { result = readJsonFile(path.join(ws(), 'results', f)); break; } catch (_) {} }
+      } catch (_) {}
+      if (!result) {
+        try {
+          const part = readJsonFile(path.join(ws(), 'results', id + '.partial.json'));
+          const url = part.video_url || (/^https?:/.test(part.video || '') ? part.video : '');
+          if (url) {
+            const res = await net.fetch(url); const buf = Buffer.from(await res.arrayBuffer());
+            const ct = String(res.headers.get('content-type') || '');
+            if (res.ok && buf.length > 10000 && !/text\/html|json/i.test(ct)) {
+              const rel = `media/${id}.mp4`; fs.writeFileSync(path.join(ws(), rel), buf);
+              result = { ...part, ok: true, video: rel, video_url: url, downloaded_by: 'app' };
+              log(`job ${id} finished from the partial file's video link`);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    if (!result) {
       const tail = (stderr().trim().split('\n').slice(-2).join(' ') || lastMsg).slice(0, 300);
       result = { ok: false, error: code === null ? 'Stopped.' : `Claude Code finished without a result${tail ? ': ' + tail : '.'}` };
       log(`job ${id} no result. stderr: ${stderr().slice(-1500)} | last: ${lastMsg.slice(0, 500)}`);
@@ -553,7 +590,7 @@ ipcMain.handle('job:start', (e, job) => {
 ipcMain.handle('job:result', (_e, id) => {
   const safe = String(id).replace(/[^A-Za-z0-9_-]/g, '');
   for (const f of [safe + '.json', safe + '.partial.json']) {
-    try { return { file: f, ...JSON.parse(fs.readFileSync(path.join(ws(), 'results', f), 'utf8')) }; } catch (_) { /* not there */ }
+    try { return { file: f, ...readJsonFile(path.join(ws(), 'results', f)) }; } catch (_) { /* not there */ }
   }
   return null;
 });
@@ -707,7 +744,7 @@ ipcMain.handle('recover:scan', () => {
 
 // Rebuild from the job and result files when no saved copy is left.
 ipcMain.handle('recover:jobs', () => {
-  const read = (d) => { const out = {}; try { for (const f of fs.readdirSync(path.join(ws(), d))) { if (!f.endsWith('.json') || f.includes('.partial')) continue; try { out[f.replace(/\.json$/, '')] = { ...JSON.parse(fs.readFileSync(path.join(ws(), d, f), 'utf8')), _mtime: fs.statSync(path.join(ws(), d, f)).mtimeMs }; } catch (_) {} } } catch (_) {} return out; };
+  const read = (d) => { const out = {}; try { for (const f of fs.readdirSync(path.join(ws(), d))) { if (!f.endsWith('.json') || f.includes('.partial')) continue; try { out[f.replace(/\.json$/, '')] = { ...readJsonFile(path.join(ws(), d, f)), _mtime: fs.statSync(path.join(ws(), d, f)).mtimeMs }; } catch (_) {} } } catch (_) {} return out; };
   return { jobs: read('jobs'), results: read('results') };
 });
 
