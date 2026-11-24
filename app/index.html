@@ -443,7 +443,7 @@ product(p){
         <div class="row" style="margin-top:12px"><input type="text" id="ownun" placeholder="Or type a username to check if it's free" style="max-width:320px"><button class="btn" data-a="checkun">Check it</button></div>`})()}
     </section>`:""}
     <section class="step panel"><div class="step-h"><span class="k ${kitDone(p)===4?"done":""}">3</span><h3>Brand kit</h3><span class="note" style="margin-left:auto">${kitDone(p)} of 4 approved</span></div>
-      <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
+      <div class="kit">${kitItem("logo","Logo (socials)",mono)}${kitItem("collage","Photo collage",collage).replace(/<\/div>\s*$/,`<div class="row fill" style="margin-top:6px"><label class="btn cy">＋ More designs${(p.designs||[]).length?` (${(p.designs||[]).length+1} total)`:""}<input type="file" accept="image/*" multiple data-dzbulk="1" style="display:none"></label></div><div class="note" style="margin-top:4px">Product comes in several designs? Pick their collages here (hold Ctrl for several). Manage them under Product designs below.</div></div>`)}${kitItem("box","Box photo",box)}${kitItem("cover","Facebook cover",cover,"wide-asset")}</div>
       ${designsBlock(p)}
     </section>
     <section class="step panel"><div class="step-h"><h3>Final videos</h3><span class="note" style="margin-left:auto">Approved and upscaled hook + reveal combos</span></div>
