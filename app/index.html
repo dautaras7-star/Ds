@@ -473,7 +473,7 @@ concepts(){
       ${list.length?`<div class="lgrid">${list.map(x=>libCard(x,kind==="hook"?"hook":"rev","pick")).join("")}</div>`:`<p class="note">No ${word}s yet. Find viral ones or add your own.</p>`}
     </section>`;
   };
-  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Hooks are the first 2–3 seconds. Reveals show the product. Find viral ones from competitors, add your own, or write a clip from scratch. Then press Generate on any card.</p></div><button class="btn pri big" data-a="ownclip">✎ Write my own clip</button></div>
+  return `<div class="head"><div><h1>Concepts</h1><p class="sub">Hooks are the first 2–3 seconds. Reveals show the product. Find viral ones from competitors, add your own, or write a clip from scratch. Then press Generate on any card.</p></div><div class="row"><button class="btn big" data-a="varopen">🔁 Viral hook variations</button><button class="btn pri big" data-a="ownclip">✎ Write my own clip</button></div></div>
   <section class="cstep"><h2>Product</h2>${ready.length?`<div class="opts">${ready.map(x=>`<button class="chip" aria-pressed="${x.id===c.pid}" data-a="cprod" data-id="${x.id}">${esc(x.name)}</button>`).join("")}</div>`:'<p class="note">No product is ready yet. Finish a product\'s brand kit in My products to generate. You can still collect hooks and reveals.</p>'}</section>
   ${section("hook","Hooks",S.hooks)}
   ${section("rev","Reveals",S.reveals)}`;
@@ -595,7 +595,7 @@ function libCard(x,kind,mode){
     <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<label style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:2;cursor:pointer;font-size:11px;color:var(--muted);padding:8px">${x.clipName?"Clip missing.<br>Click to add":"No clip.<br>Click to add"}<input type="file" accept="video/*" data-up="${x.id}" style="display:none"></label>`}</div>
     <div style="min-width:0">${name}<p>${esc(x.desc)}</p>${x.analysis?`<div class="fits"><span class="pill ok">Analyzed ✓</span></div>`:""}<div class="fits">${x.own?`<span class="pill pk">${x.full?"My full video":"My own clip"}</span>`:`Fits: ${esc(x.fits)}`}</div>${x.clipName?`<div class="fits" style="overflow-wrap:anywhere">Clip: ${esc(x.clipName)}</div>`:""}
       ${x.url?`<div class="fits"><a class="title-link" href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--accent2)">${x.views?esc(x.views)+" views · ":""}View on Instagram ↗</a></div>`:""}
-      <div class="tools">${mode==="pick"?`<button class="btn cy" data-a="genask" data-id="${x.id}" data-k="${kind}">Generate this ${kind==="hook"?"hook":"reveal"}</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
+      <div class="tools">${mode==="pick"?`<button class="btn cy" data-a="genask" data-id="${x.id}" data-k="${kind}">Generate this ${kind==="hook"?"hook":"reveal"}</button><button class="btn" data-a="varopen" data-id="${x.id}" data-k="${kind}">🔁 Variations</button>`:""}<button class="btn" data-a="rn" data-id="${x.id}">Rename</button><label class="btn">Upload clip<input type="file" accept="video/*" data-up="${x.id}"></label>${S.ui.delAsk===x.id?`<span class="confirm">Delete?</span><button class="btn" data-a="nodel">No</button><button class="btn bad" data-a="libdel" data-id="${x.id}">Yes</button>`:`<button class="btn bad" data-a="ask" data-id="${x.id}">Delete</button>`}</div>
     </div></div>`;
 }
 function jobsUI(){
@@ -960,6 +960,42 @@ function ownClipModal(){
     <div class="row" style="justify-content:flex-end"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn big" data-a="ownclipgo1" ${pr?"":"disabled"} title="Generate it without saving it to your Hooks/Reveals">Generate only once</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div>
   </div></div>`;
 }
+// ---------- Viral hook variations: same script, a few variables changed ----------
+const VAR_KEYS=[["people","Avatar / people"],["background","Background / place"],["other","Other change (light, props, camera…)"]];
+function varTarget(){const id=S.ui.varFor;return [...S.hooks,...S.reveals].find(i=>i.id===id)||null}
+function askVariations(x,more){
+  const pr=P(S.concept.pid);if(!pr||!x)return;if(MODE!=="live"||!window.studio){toast("Claude suggests variations in Live mode");return}
+  if(Object.values(JOBS).some(j=>j.type==="variations"&&j.cid===x.id))return;
+  const old=((x.vars||{})[pr.id])||[];
+  const id=runJob("variations","Variations · "+x.name,{product:productInfo(pr),clip:{name:x.name,desc:x.desc||"",clip:x.clip||"",url:x.url||"",analysis:x.analysis||null},known:old.map(v=>v.title),count:6},r=>{
+    if(!r.ok)return;if(r.analysis&&!x.analysis)x.analysis=r.analysis;if(r.script)x.script=r.script;
+    x.vars=x.vars||{};x.vars[pr.id]=[...old,...(r.ideas||[]).map(i=>({...i,sel:false}))]});
+  JOBS[id].cid=x.id;
+}
+function varModal(){
+  const pr=P(S.concept.pid),x=varTarget(),kind=S.ui.varKind||"hook";
+  const list=x&&pr?((x.vars||{})[pr.id]||[]):[],busy=x&&Object.values(JOBS).some(j=>j.type==="variations"&&j.cid===x.id),n=list.filter(v=>v.sel).length,eng=S.ui.varEngine||"Seedance";
+  const mine=[...S.hooks].filter(h=>h.mine||h.clip||h.url);
+  return `<div class="modal" role="dialog" aria-modal="true" aria-label="Viral hook variations"><div class="modal-box" style="width:min(900px,100%)">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="eyebrow">Viral hook variations${pr?` · ${esc(pr.name)}`:""}</div><h2 style="font-size:20px;margin-top:2px">${x?esc(x.name):"Your viral hook, a few things changed"}</h2></div><button class="btn" data-a="varclose" aria-label="Close">✕</button></div>
+    <p class="note" style="margin:0">Use a hook that already went viral for you. Claude keeps the same script (or very close) and suggests small changes: a different person, another background, light, props. Tick the ones you like and generate.</p>
+    ${!pr?`<p style="color:var(--bad)">Pick a product with a finished brand kit at the top of Concepts first.</p>`:""}
+    <div class="panel" style="padding:12px;background:var(--panel2)"><div class="row" style="gap:10px">
+      <label class="btn pri">⬆ Upload my viral video<input type="file" accept="video/*" data-varup="1" style="display:none"></label>
+      <span class="note" style="margin:0">or pick one you already have:</span>
+      <select data-varpick style="max-width:320px"><option value="">Choose a hook…</option>${mine.map(h=>`<option value="${h.id}" ${x&&x.id===h.id?"selected":""}>${esc(h.name)}${h.mine?" · mine":""}</option>`).join("")}</select></div></div>
+    ${x?`${x.script||(x.analysis&&x.analysis.dialogue_full)?`<div class="orig">Original script: ${esc(x.script||x.analysis.dialogue_full)}</div>`:""}
+      <div class="row" style="justify-content:space-between"><span class="note" style="margin:0">${busy?"":list.length?`${list.length} suggestions`:"No suggestions yet."}</span>${busy?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Claude is studying your hook and writing variations…</span>`:`<button class="btn cy" data-a="vargo">💡 ${list.length?"More variations":"Suggest variations"}</button>`}</div>
+      <div class="lgrid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">${list.map((v,i)=>`<div class="lcard" style="display:block" aria-pressed="${!!v.sel}">
+        <label class="row" style="justify-content:space-between;cursor:pointer"><b style="min-width:0">${esc(v.title||"Variation "+(i+1))}</b><input type="checkbox" data-varsel="${i}" ${v.sel?"checked":""} style="width:18px;height:18px;accent-color:var(--accent2)"></label>
+        ${v.why?`<p class="note" style="margin:4px 0">${esc(v.why)}</p>`:""}
+        ${VAR_KEYS.map(([k,lab])=>`<label class="f" style="margin-top:6px;font-size:12px">${lab}<textarea id="var-${k}-${i}" data-varedit="${i}" data-k="${k}" style="min-height:40px;font-size:13px" placeholder="Same as the original">${esc((v.changes||{})[k]||"")}</textarea></label>`).join("")}
+        <label class="f" style="margin-top:6px;font-size:12px">Script<textarea id="var-script-${i}" data-varedit="${i}" data-k="script" style="min-height:40px;font-size:13px" placeholder="Same as the original">${esc((v.changes||{}).script||"")}</textarea></label>
+      </div>`).join("")}</div>`:""}
+    <div class="row" style="justify-content:space-between"><div class="seg" role="group"><button aria-pressed="${eng==="Seedance"}" data-a="vareng" data-v="Seedance">Seedance · rebuild</button><button aria-pressed="${eng==="Genjutsu"}" data-a="vareng" data-v="Genjutsu">Genjutsu · edit my video</button></div>
+      <div class="row"><button class="btn" data-a="varclose">Cancel</button><button class="btn pri big" data-a="vargen" ${n&&pr?"":"disabled"}>Generate ${n||""} variation${n===1?"":"s"}</button></div></div>
+  </div></div>`;
+}
 function ownClipFields(){
   const out={};document.querySelectorAll('.modal [id^="oc-"]').forEach(el=>{if(el.type==="file"||el.id==="oc-desc"||el.classList.contains("oc-angle"))return;const lab=(el.closest("label")||{}).textContent||"";
     out[el.id]={label:lab.replace(/\s+/g," ").trim().slice(0,60),type:el.tagName==="SELECT"?"choice":el.type==="checkbox"?"yes/no":"text",options:el.tagName==="SELECT"?[...el.options].map(o=>o.value):undefined}});
@@ -1230,7 +1266,7 @@ function render(){
   const empty=MODE==="live"&&window.studio&&!S.products.length&&!S.gens.length&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--warn)"><b>Your data looks empty.</b> If it was deleted, you can probably bring it back. <button class="btn pri" data-a="goconn" style="margin-left:8px">Recover my data</button></div>`:"";
   const warn=empty+(MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"");
   const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
-  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&(v==="generations"||v==="finals")?nextModal():"");counts();save();jobsUI();
+  $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.varOpen&&v==="concepts"?varModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&(v==="generations"||v==="finals")?nextModal():"");counts();save();jobsUI();
   for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveClip(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
@@ -1342,6 +1378,13 @@ $("#main").addEventListener("click",e=>{
       const left=miss.length-n;toast(n?`Attached ${n} clip${n===1?"":"s"}${left?` · ${left} not found, use Re-attach clips`:""}`:"No matching files found. Use Re-attach clips and pick them");render()})();return;
     case"relinkclose":S.ui.relinkOpen=false;PENDING_CLIPS=[];toast("Clips attached");break;
     case"ownclip":{S.ui.ownClip=true;const pr=P(S.concept.pid);if(pr&&!pr.sugg)askSugg(pr,null);break}
+    case"varopen":S.ui.varOpen=true;S.ui.varFor=id||S.ui.varFor||null;S.ui.varKind=b.dataset.k||"hook";{const x=varTarget(),pr=P(S.concept.pid);if(x&&pr&&!((x.vars||{})[pr.id]||[]).length)askVariations(x)}break;
+    case"varclose":S.ui.varOpen=false;break;
+    case"vargo":askVariations(varTarget(),true);break;
+    case"vareng":S.ui.varEngine=b.dataset.v;break;
+    case"vargen":{const x=varTarget(),pr=P(S.concept.pid);if(!x||!pr)return;const list=(x.vars||{})[pr.id]||[];let ok=false;
+      for(const v of list.filter(v=>v.sel)){const c=v.changes||{};ok=genOne(x,S.ui.varKind||"hook",S.ui.varEngine||"Seedance",{people:c.people||"",background:c.background||"",script:c.script||x.script||"",mood:c.mood||"",other:[c.other||"","Variation of the user's OWN viral hook: keep the script, timing, shots, camera and energy as close to the original as possible; change only what is listed here."].filter(Boolean).join("\n"),length:c.length||"",closeness:"very close",variation:v.title||""})||ok;v.sel=false}
+      if(ok){S.ui.varOpen=false;location.hash="generations"}break}
     case"ownclipfill":ownClipFill();return;
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
@@ -1403,6 +1446,10 @@ $("#main").addEventListener("click",e=>{
 $("#main").addEventListener("change",async e=>{
   const t=e.target;
   if(t.dataset&&t.dataset.ideaedit!=null){const pr=P(S.concept.pid),x=[...S.hooks,...S.reveals].find(i=>i.id===S.ui.genFor);const it=x&&pr&&((x.ideas||{})[pr.id]||[])[+t.dataset.ideaedit];if(it&&t.value.trim()!==it.pitch){it.pitch=t.value.trim();it.edited=true;save()}return}
+  if(t.dataset&&t.dataset.varsel!=null){const x=varTarget(),pr=P(S.concept.pid);const v=x&&pr&&((x.vars||{})[pr.id]||[])[+t.dataset.varsel];if(v){v.sel=t.checked;render()}return}
+  if(t.dataset&&t.dataset.varedit!=null){const x=varTarget(),pr=P(S.concept.pid);const v=x&&pr&&((x.vars||{})[pr.id]||[])[+t.dataset.varedit];if(v){v.changes=v.changes||{};v.changes[t.dataset.k]=t.value.trim();save()}return}
+  if(t.dataset&&t.dataset.varpick!=null){S.ui.varFor=t.value||null;const x=varTarget(),pr=P(S.concept.pid);if(x&&pr&&!((x.vars||{})[pr.id]||[]).length)askVariations(x);render();return}
+  if(t.dataset&&t.dataset.varup&&t.files&&t.files[0]){const f=t.files[0];try{toast("Saving your video…");const fp=await saveClip(f);const x={id:uid(),name:f.name.replace(/\.[^.]+$/,"").slice(0,40)||"My viral hook",desc:"My own viral hook",fits:"Any",mine:true,bg:G("#2a1d3d","#0b0b10")};if(/^blob:/.test(fp))CLIPS[x.id]=fp;else x.clip=fp;x.clipName=f.name;S.hooks.unshift(x);S.ui.varFor=x.id;S.ui.varKind="hook";toast("Saved to Hooks. Claude is studying it…");askVariations(x)}catch(err){toast("Couldn't save the video: "+(err.message||err))}render();return}
   if(t.dataset&&t.dataset.resethour!=null){S.resetHour=+t.value;save();render();return}
   if(t.dataset&&t.dataset.relinkpick!=null&&t.value){const r=PENDING_CLIPS.filter(q=>!q.ok)[+t.dataset.relinkpick];const x=[...S.hooks,...S.reveals].find(i=>i.id===t.value);if(r&&x){if(/^blob:/.test(r.path))CLIPS[x.id]=r.path;else x.clip=r.path;x.clipName=r.name;r.ok=true;r.hook=x.name}render();return}
   if(t.dataset&&t.dataset.nextedit!=null){const g=S.gens.find(x=>x.id===S.ui.nextFor);const it=g&&g.nextIdeas[+t.dataset.nextedit];if(it){it[t.dataset.k]=t.value.trim();save()}return}
@@ -1435,7 +1482,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
   if(t.id&&t.id.startsWith("cr-"))save();
 });
-$("#main").addEventListener("keydown",e=>{if(e.target&&e.target.id==="oc-desc"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();ownClipFill();return}if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip||S.ui.nextFor)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;S.ui.nextFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
+$("#main").addEventListener("keydown",e=>{if(e.target&&e.target.id==="oc-desc"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();ownClipFill();return}if(e.key==="Escape"&&S.ui.varOpen){S.ui.varOpen=false;render();return}if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip||S.ui.nextFor)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;S.ui.nextFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
 document.addEventListener("error",e=>{const v=e.target;if(!v||v.tagName!=="VIDEO"||!v.closest(".lcard"))return;const pl=v.parentNode;if(pl.querySelector(".playerr"))return;pl.insertAdjacentHTML("beforeend",'<span class="note playerr" style="position:absolute;inset:auto 4px 6px;text-align:center;z-index:3;font-size:10px;color:var(--bad)">Can\'t play this file</span>')},true);
 // Drag hook/reveal cards to reorder them (order is saved).
 let DRAG=null;

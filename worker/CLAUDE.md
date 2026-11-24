@@ -185,6 +185,13 @@ Input: `product` (full info, notes, playbook; may be null), `description` (the u
 Write a concrete, filmable plan for a realistic phone video for this product and its buyers, then fill **every** field: `text` fields with short specific text (names, ages, clothes, place, exact spoken lines with who says them, sounds, the second the product appears…); `choice` fields with **exactly one of the given options** (use "Claude decides" only if nothing fits); `yes/no` with true/false; `angles` with a list taken from its options. `oc-name` is a short catchy clip name. Keep the user's idea; add the details they left out. No on-screen text. Respect the product's rules.
 Result: `{"ok":true,"values":{"oc-name":"…","oc-len":"6s","oc-shots":"2", …, "angles":["Product close-up"]}}`
 
+### `variations`: small variations of the user's OWN viral hook
+Input: `product` (full info, notes, playbook), `clip` (`name`, `desc`, `clip` = the user's own video file, `url`, `analysis` if already done), `known` (titles already suggested; give new ones), `count`.
+This video already went viral for the user. The goal is more videos that keep everything that made it work, with only one or two variables changed.
+1. Study the clip closely (as in `analyze`): shots, timing, camera, people, place, and transcribe the **exact script**. If `analysis` is missing, return yours as `analysis` (same shape as the `analyze` result).
+2. Suggest `count` variations. Each changes only 1–2 things, for example: a different avatar (age, gender, look, clothes), a different background or room, time of day or light, a prop or pet, a small camera change. Keep the script word for word, or very close (a tiny wording tweak at most). Mix the kinds of change across the set, and say in `why` what stays and why this change could also work.
+Result: `{"ok":true,"script":"the exact original script with who says what, or 'No dialogue'","analysis":{…only if it was missing…},"ideas":[{"title":"short name","why":"one sentence","changes":{"people":"only if changed, else empty","background":"only if changed, else empty","other":"light/props/camera change, else empty","script":"empty to keep the original word for word, or the slightly tweaked script"}}]}`
+
 ### `balance`: remaining Higgsfield credits
 Call Higgsfield's `balance` tool, and `models_explore` `{action:"list",type:"video",unlim:true}` for the Unlimited status. Result: `{"ok":true,"credits":<number of credits left>,"unlimited":{"available":true|false,"expires_at":"<ISO or null>","covers":"short list of what it covers, e.g. seedance_2_5 720p"}}`
 
