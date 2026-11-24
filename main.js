@@ -475,12 +475,27 @@ ipcMain.handle('media:save', (_e, name, bytes) => {
   return 'media/' + fn;
 });
 
+// Seedance jobs that use the website's Unlimited mode share the user's one Chrome window, so they run one at a time.
+const webQueue = []; const webBusy = new Set();
+const isUnlimWeb = (job, s) => ['generate', 'fix'].includes(job.type) && s.useUnlim !== false && job.input && /seedance/i.test(job.input.engine || 'Seedance');
+function webDone(id) { if (webBusy.delete(id)) { const next = webQueue.shift(); if (next) startJob(next.e, next.job); } }
 ipcMain.handle('job:start', (e, job) => {
+  const s = readSettings();
+  if (isUnlimWeb(job, s) && webBusy.size) {
+    webQueue.push({ e, job });
+    if (!e.sender.isDestroyed()) e.sender.send('job:event', { id: job.id, kind: 'progress', text: `Waiting: another clip is being made on the website (${webQueue.length} in line)` });
+    log(`job ${job.id} queued for the website`);
+    return { started: true, queued: true };
+  }
+  return startJob(e, job);
+});
+function startJob(e, job) {
   const s = readSettings();
   const id = job.id;
   const wc = e.sender;
   const send = (m) => { if (!wc.isDestroyed()) wc.send('job:event', { id, ...m }); };
-  if (['generate', 'fix'].includes(job.type) && job.input) job.input.useUnlim = s.useUnlim !== false;
+  if (isUnlimWeb(job, s)) webBusy.add(id);
+  if (['generate', 'fix'].includes(job.type) && job.input) { job.input.useUnlim = s.useUnlim !== false; job.input.unlimOnly = s.useUnlim !== false && s.unlimOnly !== false; }
   fs.writeFileSync(path.join(ws(), 'jobs', id + '.json'), JSON.stringify(job, null, 2));
   const resultPath = path.join(ws(), 'results', id + '.json');
   try { fs.unlinkSync(resultPath); } catch (_) { /* no old result */ }
@@ -492,7 +507,7 @@ ipcMain.handle('job:start', (e, job) => {
   if (s.allowedTools.trim()) args.push('--allowedTools', ...s.allowedTools.trim().split(/\s+/));
   // Jobs that browse Instagram, TikTok, the web or the Higgsfield website need the user's Chrome.
   const chromeJobs = ['scroll', 'findclips', 'handles', 'usernames', 'competitors', 'recover', 'sync'];
-  const unlimWeb = ['generate', 'fix'].includes(job.type) && s.useUnlim !== false && job.input && /seedance/i.test(job.input.engine || 'Seedance');
+  const unlimWeb = isUnlimWeb(job, s);
   if (s.useChrome && (chromeJobs.includes(job.type) || unlimWeb || (job.input && job.input.useChrome))) args.push('--chrome');
   const prompt = `You are the Viral Studio worker. Read CLAUDE.md in this folder, then do job ${id} (jobs/${id}.json). Write results/${id}.json exactly as CLAUDE.md describes, then stop.`;
 
@@ -535,14 +550,14 @@ ipcMain.handle('job:start', (e, job) => {
         clearInterval(poll); finished = true; running.delete(id);
         let result; try { result = readJsonFile(resultPath); } catch (_) { result = { ok: true, video: rel }; }
         if (sessionId) result._session = sessionId;
-        send({ kind: 'done', result }); killTree(child);
+        send({ kind: 'done', result }); killTree(child); webDone(id);
       } catch (err) { log(`job ${id} app download failed: ${err}`); busyDl = false; }
     }, 5000);
   }
   const limit = job.input && +job.input.maxMinutes;
   if (limit > 0) setTimeout(() => { if (running.get(id) === child) { log(`job ${id} time limit`); killTree(child); } }, (limit + 3) * 60000);
   child.on('error', (err) => {
-    running.delete(id);
+    running.delete(id); webDone(id);
     log(`job ${id} spawn error ${err}`);
     send({ kind: 'done', result: { ok: false, error: "Couldn't start Claude Code. Check the Connection page." } });
   });
@@ -582,9 +597,10 @@ ipcMain.handle('job:start', (e, job) => {
     log(`job ${id} end code=${code} ok=${result.ok}`);
     if (sessionId) result._session = sessionId;
     send({ kind: 'done', result });
+    webDone(id);
   });
   return { started: true };
-});
+}
 
 // Read a finished job's result from disk (for jobs that ended while the app was closed).
 ipcMain.handle('job:result', (_e, id) => {
@@ -623,6 +639,8 @@ ipcMain.handle('log:open', () => { shell.showItemInFolder(path.join(app.getPath(
 ipcMain.handle('log:tail', () => { try { return fs.readFileSync(path.join(app.getPath('userData'), 'viral-studio.log'), 'utf8').split('\n').slice(-80).join('\n'); } catch (_) { return ''; } });
 ipcMain.handle('job:running', () => [...running.keys()]);
 ipcMain.handle('job:cancel', (_e, id) => {
+  const q = webQueue.findIndex((x) => x.job.id === id);
+  if (q >= 0) { const [it] = webQueue.splice(q, 1); if (!it.e.sender.isDestroyed()) it.e.sender.send('job:event', { id, kind: 'done', result: { ok: false, error: 'Stopped.' } }); return true; }
   const c = running.get(id);
   if (c) killTree(c);
   return true;

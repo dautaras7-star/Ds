@@ -548,6 +548,7 @@ connection(){
         <div class="two"><label class="f">Max credits per video<input type="text" inputmode="numeric" id="st-max" value="${esc(s.maxCreditsPerVideo||150)}"></label>
         <label class="check" style="margin-top:18px"><input type="checkbox" id="st-chrome" ${s.useChrome!==false?"checked":""}>Use Claude in Chrome for scrolling</label></div>
         <label class="check"><input type="checkbox" id="st-unlim" ${s.useUnlim!==false?"checked":""}>Use Higgsfield Unlimited when it's on: Seedance at 720p for free. When Unlimited ends, back to 480p on credits automatically.</label>
+        <label class="check"><input type="checkbox" id="st-unlimonly" ${s.unlimOnly!==false?"checked":""}>Free only: never spend credits on Seedance. If Unlimited can't be used, stop and tell me (untick to fall back to 480p on credits).</label>
         <div class="two"><label class="f">Upscale method<select id="st-upm"><option value="web" ${(s.upscaleMethod||"web")==="web"?"selected":""}>Higgsfield website in Chrome (exact settings)</option><option value="api" ${s.upscaleMethod==="api"?"selected":""}>Direct Topaz 1080p (fast, no model/FPS choice)</option></select></label>
         <label class="f">Upscale model<input type="text" id="st-upmodel" value="${esc(s.upscaleModel||"Topaz Starlight Precise")}"></label></div>
         <div class="two"><label class="f">Upscale resolution<select id="st-upres">${["1080p","2K","4K"].map(r=>`<option ${r===(s.upscaleRes||"1080p")?"selected":""}>${r}</option>`).join("")}</select></label>
@@ -686,7 +687,7 @@ const CONN={
   goconn(){location.hash="connection"}
 };
 document.addEventListener("submit",async e=>{if(e.target.id!=="setform")return;e.preventDefault();
-  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked,upscaleMethod:$("#st-upm").value,upscaleModel:$("#st-upmodel").value.trim()||"Topaz Starlight Precise",upscaleRes:$("#st-upres").value,upscaleFps:$("#st-upfps").value,useUnlim:$("#st-unlim").checked});
+  SETTINGS=await window.studio.setSettings({claudeCommand:$("#st-cmd").value.trim()||"claude",permissionMode:$("#st-perm").value,allowedTools:$("#st-tools").value.trim(),maxCreditsPerVideo:parseInt($("#st-max").value,10)||150,useChrome:$("#st-chrome").checked,upscaleMethod:$("#st-upm").value,upscaleModel:$("#st-upmodel").value.trim()||"Topaz Starlight Precise",upscaleRes:$("#st-upres").value,upscaleFps:$("#st-upfps").value,useUnlim:$("#st-unlim").checked,unlimOnly:$("#st-unlimonly").checked});
   toast("Settings saved");render()});
 function syncBtn(){
   if(MODE!=="live"||!window.studio)return "";
