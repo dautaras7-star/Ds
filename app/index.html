@@ -520,6 +520,13 @@ connection(){
   return `<div class="head"><div><h1>Connection</h1><p class="sub">Viral Studio uses Claude Code on this PC to do the real work. When Live mode is on, every button starts a Claude Code job in the background with your Claude subscription.</p></div></div>
   ${!inApp?'<div class="panel" style="margin-bottom:16px;color:var(--warn)">You are viewing this outside the desktop app, so Live mode is off.</div>':""}
   <div class="conn">
+    ${window.studio&&window.studio.claudeTerminal?`<section class="panel" style="grid-column:1/-1;${S.ui.authProblem?"border-color:var(--bad)":""}"><h3>Claude Code sign-in</h3>
+      ${S.ui.authProblem?`<p style="color:var(--bad);margin-top:-4px">Claude Code got signed out, so jobs fail. Sign in again below.</p>`:""}
+      <p class="note" style="margin-top:-4px"><b>Sign in again:</b> opens a black Claude window. Type <b>/login</b>, press Enter, sign in in the browser, then close the window.</p>
+      <div class="row"><button class="btn pri" data-a="cclogin">Sign in to Claude Code</button></div>
+      <p class="note" style="margin-top:12px"><b>Stay signed in for a year</b> (stops this from happening): press the button, sign in in the browser, then copy the long code the window prints (it starts with <b>sk-ant-oat</b>) and paste it here.</p>
+      <div class="row" style="flex-wrap:nowrap;gap:8px"><button class="btn" data-a="cctoken" style="flex:none">Get my long-lived sign-in code</button><input type="password" id="st-token" placeholder="${SETTINGS&&SETTINGS.claudeToken?"Saved ✓ (paste a new one to replace it)":"Paste the code here"}" autocomplete="off"><button class="btn pri" data-a="cctokensave" style="flex:none">Save</button>${SETTINGS&&SETTINGS.claudeToken?`<button class="btn" data-a="cctokendel" style="flex:none">Remove</button>`:""}</div>
+      ${SETTINGS&&SETTINGS.claudeToken?`<p class="note" style="color:var(--ok)">Long-lived sign-in is saved. Claude Code uses it for every job.</p>`:""}</section>`:""}
     ${window.studio&&window.studio.recoverScan?recoverPanel():""}
     ${window.studio&&window.studio.logTail?`<section class="panel" style="grid-column:1/-1"><h3>App log</h3><p class="note" style="margin-top:-4px">If something didn't come back to the app, copy the log and send it to Claude in chat.</p><div class="row"><button class="btn pri" data-a="logcopy">Copy last log lines</button><button class="btn" data-a="logopen">Show log file</button></div></section>`:""}
     <section class="panel"><h3>Mode</h3>
@@ -615,7 +622,7 @@ if(window.studio)window.studio.onJobEvent(m=>{
   delete JOBS[m.id];
   const r=m.result||{ok:false,error:"No result"};
   try{j.onDone(r)}catch(err){console.error(err)}
-  if(!r.ok)toast(r.error||"Job failed");
+  if(!r.ok){toast(r.error||"Job failed");if(/authenticat|OAuth|\/login|not logged in|log in/i.test(r.error||"")){S.ui.authProblem=true}}else if(S.ui.authProblem&&j.type!=="ping")S.ui.authProblem=false;
   render();
 });
 const norm=t=>String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\b(the|a|an|for|with|mini|new)\b/g," ").replace(/s\b/g,"").replace(/\s+/g," ").trim();
@@ -1264,7 +1271,8 @@ function render(){
   document.body.classList.toggle("live",MODE==="live");$("#modelabel").textContent=MODE==="live"?"Live · Claude Code":"Example data";
   $("#ccdot").className="dot "+(CC.checked?(CC.ok?"ok":"bad"):"");
   const empty=MODE==="live"&&window.studio&&!S.products.length&&!S.gens.length&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--warn)"><b>Your data looks empty.</b> If it was deleted, you can probably bring it back. <button class="btn pri" data-a="goconn" style="margin-left:8px">Recover my data</button></div>`:"";
-  const warn=empty+(MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"");
+  const authWarn=MODE==="live"&&S.ui.authProblem&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code got signed out</b>, so jobs fail. <button class="btn pri" data-a="cclogin" style="margin-left:8px">Sign in again</button><button class="btn" data-a="goconn" style="margin-left:6px">Stay signed in for a year</button></div>`:"";
+  const warn=authWarn+empty+(MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"");
   const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
   $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.varOpen&&v==="concepts"?varModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&(v==="generations"||v==="finals")?nextModal():"");counts();save();jobsUI();
   for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
@@ -1418,6 +1426,10 @@ $("#main").addEventListener("click",e=>{
     case"syncgo":syncHF();break;
     case"syncstop":{const k=Object.keys(JOBS).find(x=>JOBS[x].type==="sync");if(k)window.studio.cancelJob(k);toast("Stopping…");return}
     case"syncclose":S.ui.syncInfo=null;break;
+    case"cclogin":window.studio.claudeTerminal("login");toast("In the black window: type /login and press Enter");return;
+    case"cctoken":window.studio.claudeTerminal("token");toast("Sign in in the browser, then copy the code the window prints");return;
+    case"cctokensave":{const v=(($("#st-token")||{}).value||"").trim();if(!/^sk-ant-/.test(v)){toast("That doesn't look like the code. It starts with sk-ant-oat…");return}window.studio.setSettings({claudeToken:v}).then(x=>{SETTINGS=x;S.ui.authProblem=false;toast("Saved. Claude Code will stay signed in");render()});return}
+    case"cctokendel":window.studio.setSettings({claudeToken:""}).then(x=>{SETTINGS=x;toast("Removed");render()});return;
     case"upagain":gen.upErr="";LIVE.approve(b,gen.id);break;
     case"upback":Object.assign(gen,{st:"ready",stuck:false,upErr:""});toast("Back in Generations");break;
     case"unstick":if(gen.video){gen.st=(gen.jobId||"").startsWith("upscale")?"ready":"ready";gen.stuck=false}else S.gens=S.gens.filter(x=>x!==gen);break;

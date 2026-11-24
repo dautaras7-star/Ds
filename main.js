@@ -92,7 +92,7 @@ function runClaude(args, input, onLine) {
   const isWin = process.platform === 'win32';
   // On Windows the CLI is often a .cmd shim, which needs a shell to start.
   const child = spawn(isWin ? quoteWin(resolveClaude()) : resolveClaude(), isWin ? args.map(quoteWin) : args, {
-    cwd: ws(), shell: isWin, windowsHide: true, env: withFfmpeg(process.env)
+    cwd: ws(), shell: isWin, windowsHide: true, env: { ...withFfmpeg(process.env), ...(s.claudeToken ? { CLAUDE_CODE_OAUTH_TOKEN: s.claudeToken } : {}) }
   });
   let buf = '';
   child.stdout.on('data', (d) => {
@@ -606,6 +606,18 @@ ipcMain.handle('media:download', async (_e, { url, name }) => {
   const rel = `media/${String(name || 'sync').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)}-${Date.now().toString(36)}.mp4`;
   fs.writeFileSync(path.join(ws(), rel), buf);
   return rel;
+});
+// Open a terminal window running Claude Code, so the user can sign in (/login) or make a long-lived token (setup-token).
+ipcMain.handle('claude:terminal', (_e, mode) => {
+  const exe = resolveClaude();
+  const sub = mode === 'token' ? ' setup-token' : '';
+  if (process.platform === 'win32') {
+    spawn('cmd.exe', ['/c', 'start', '"Claude Code sign-in"', 'cmd.exe', '/k', `"${exe}"${sub}`], { detached: true, windowsVerbatimArguments: true, cwd: ws() }).unref();
+  } else {
+    spawn('x-terminal-emulator', ['-e', exe + sub], { detached: true, cwd: ws() }).on('error', () => {}).unref?.();
+  }
+  log('opened Claude terminal ' + (mode || 'login'));
+  return true;
 });
 ipcMain.handle('log:open', () => { shell.showItemInFolder(path.join(app.getPath('userData'), 'viral-studio.log')); return true; });
 ipcMain.handle('log:tail', () => { try { return fs.readFileSync(path.join(app.getPath('userData'), 'viral-studio.log'), 'utf8').split('\n').slice(-80).join('\n'); } catch (_) { return ''; } });
