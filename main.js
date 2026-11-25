@@ -638,6 +638,7 @@ ipcMain.handle('claude:terminal', (_e, mode) => {
 ipcMain.handle('log:open', () => { shell.showItemInFolder(path.join(app.getPath('userData'), 'viral-studio.log')); return true; });
 ipcMain.handle('log:tail', () => { try { return fs.readFileSync(path.join(app.getPath('userData'), 'viral-studio.log'), 'utf8').split('\n').slice(-80).join('\n'); } catch (_) { return ''; } });
 ipcMain.handle('job:running', () => [...running.keys()]);
+ipcMain.handle('job:started', (_e, id) => fs.existsSync(path.join(ws(), 'jobs', String(id).replace(/[^A-Za-z0-9_-]/g, '') + '.json')));
 ipcMain.handle('job:cancel', (_e, id) => {
   const q = webQueue.findIndex((x) => x.job.id === id);
   if (q >= 0) { const [it] = webQueue.splice(q, 1); if (!it.e.sender.isDestroyed()) it.e.sender.send('job:event', { id, kind: 'done', result: { ok: false, error: 'Stopped.' } }); return true; }

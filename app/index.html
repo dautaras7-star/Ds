@@ -780,6 +780,8 @@ async function recoverStuck(){
     let r=null;if(g.jobId){try{r=await window.studio.jobResult(g.jobId)}catch(e){}}
     if(r&&r.file&&!r.file.includes("partial")&&applyResult(g,type,r)){toast("Recovered a finished video");continue}
     if(r&&r.job_id)g.hf_job=r.job_id;
+    let started=true;if(g.jobId&&!r&&window.studio.jobStarted){try{started=await window.studio.jobStarted(g.jobId)}catch(e){}}
+    if(!started&&g.st==="generating"&&(g.retry||g.retryPart)){Object.assign(g,{st:"failed",stuck:false,err:"This clip was waiting in line when the app closed, so it never started and cost nothing. Press Try again."});continue}
     g.stuck=true;
   }
   render();
@@ -884,7 +886,7 @@ function nextModal(){
 function genPart(parent,idea,order,extra){
   const pr=P(parent.pid);
   parent.story=parent.story||parent.id;parent.part=parent.part||1;
-  const g={id:uid(),pid:parent.pid,hook:idea.title,reveal:"",engine:"Seedance",dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating",story:parent.story,part:order,parentId:parent.id,idea,design:parent.design||"main",designName:parent.designName||""};
+  const g={id:uid(),pid:parent.pid,hook:idea.title,reveal:"",engine:"Seedance",dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating",story:parent.story,part:order,parentId:parent.id,idea,design:parent.design||"main",designName:parent.designName||"",retryPart:{parent:{id:parent.id,pid:parent.pid,prompt:parent.prompt||"",video:parent.video||"",story:parent.story,part:parent.part,design:parent.design,designName:parent.designName},idea,order,extra:extra||{}}};
   S.gens.unshift(g);g.started=Date.now();
   if(MODE==="live"&&window.studio){
     g.jobId=runJob("generate",`Part ${order} · ${idea.title}`,{product:productInfo(pr,parent.design||"main"),hook:{name:idea.title,desc:idea.description,spec:{type:"Story part",description:idea.description,location:idea.setting||"",who:idea.people||"",length:idea.length||""}},reveal:null,engine:"Seedance",
@@ -1127,7 +1129,7 @@ function genOne(x,kind,engine,changes){changes=changes||{};
   if(MODE==="live"&&!window.studio){toast("Live mode only works in the desktop app");return false}
   const did=designChoice(pr);if(!did){toast(`${pr.name} has ${designsOf(pr).length} designs. Pick which design to use first`);S.ui.needDesign=true;render();return false}
   const isHook=kind==="hook";
-  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,changes,ownSpec:x.spec||null,ownDesc:x.desc||"",design:did,designName:designOf(pr,did).name,dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
+  const g={id:uid(),pid:pr.id,hook:isHook?x.name:"",reveal:isHook?"":x.name,engine,changes,ownSpec:x.spec||null,ownDesc:x.desc||"",design:did,designName:designOf(pr,did).name,retry:{x:{...x},kind,engine,changes},dur:"…",cr:0,bg:"",bgc:G("#1d1d2b","#121218"),st:"generating"};
   S.gens.unshift(g);S.ui.genFor=null;
   if(MODE==="live"){
     if(!window.studio){toast("Live mode only works in the desktop app");return}
