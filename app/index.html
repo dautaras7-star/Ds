@@ -315,11 +315,19 @@ function seedLive(){const s=seed();s.finds=[];s.products=[];s.gens=[];s.credits=
 function load(){let s=MODE==="live"?seedLive():seed();try{const x=JSON.parse(localStorage.getItem(KEY())||"null");if(x&&x.v===3){s=x.s;s.ui={...seed().ui}}}catch(e){}return s}
 let S=load();
 let BK=null,BKLAST=0;
-const save=()=>{let j;try{j=JSON.stringify({v:3,s:S});localStorage.setItem(KEY(),j)}catch(e){}
+let SAVE_T=null;const save=()=>{clearTimeout(SAVE_T);SAVE_T=setTimeout(saveNow,400)};window.addEventListener("beforeunload",()=>saveNow());
+const saveNow=()=>{clearTimeout(SAVE_T);let j;try{j=JSON.stringify({v:3,s:S});localStorage.setItem(KEY(),j)}catch(e){}
   if(MODE==='live'&&window.studio&&window.studio.backupSave&&j&&(S.products.length||S.gens.length||S.hooks.length)){clearTimeout(BK);BK=setTimeout(()=>{if(Date.now()-BKLAST>60000){BKLAST=Date.now();window.studio.backupSave(j)}},8000)}};
 let SETTINGS=null,WS="",CC={checked:false,ok:false,version:""},GP={hasClient:false,connected:false};
 const JOBS={};
 const media=pth=>!pth?"":/^(https?:|file:|blob:|data:|img\/)/.test(pth)?pth:"file:///"+(WS.replace(/\\/g,"/")+"/"+pth).replace(/^\/+/,"");
+// Hook/reveal previews play only while on screen (20+ looping videos at once made the app slow).
+let PV_OBS=null;
+function watchPreviews(){
+  if(!("IntersectionObserver" in window))return;
+  if(!PV_OBS)PV_OBS=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target;if(e.isIntersecting){v.play().catch(()=>{})}else if(!v.paused)v.pause()}),{threshold:0.25});
+  document.querySelectorAll("video.pv").forEach(v=>{if(!v._pv){v._pv=1;PV_OBS.observe(v)}});
+}
 const vmedia=o=>o.video?`<video src="${esc(media(o.video))}" muted loop playsinline controls preload="metadata"></video>`:"";
 
 const $=s=>document.querySelector(s);
@@ -598,7 +606,7 @@ const CLIPS={};
 const ig=f=>"https://www.instagram.com/"+encodeURIComponent(f.handle)+"/";
 function libCard(x,kind,mode){
   const c=S.concept,sel=mode==="pick"&&(kind==="hook"?c.hooks:c.reveals).includes(x.id);
-  const csrc=CLIPS[x.id]||(x.clip?media(x.clip):"");const mediaEl=csrc?`<video src="${esc(csrc)}" muted loop autoplay playsinline preload="auto" disablepictureinpicture></video>`:"";
+  const csrc=CLIPS[x.id]||(x.clip?media(x.clip):"");const mediaEl=csrc?`<video class="pv" src="${esc(csrc)}" muted loop playsinline preload="metadata" disablepictureinpicture></video>`:"";
   const name=S.ui.editing===x.id?`<div class="rename"><input type="text" id="rn-input" value="${esc(x.name)}" aria-label="New name"><button class="btn pri" data-a="rnsave" data-id="${x.id}">Save</button></div>`:`<h4>${esc(x.name)}</h4>`;
   return `<div class="lcard" ${mode==="pick"?`aria-pressed="${sel}"`:""} draggable="true" data-drag="${x.id}" data-dragkind="${kind}" style="grid-template-columns:110px 1fr"><span class="grip" title="Drag to move" aria-hidden="true">⠿</span>
     <div class="player" title="${esc(x.name)}" style="${x.thumb?`background-image:url('${esc(media(x.thumb))}')`:bg(x)};width:110px">${mediaEl}${csrc||x.img||x.thumb?"":`<label style="position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:2;cursor:pointer;font-size:11px;color:var(--muted);padding:8px">${x.clipName?"Clip missing.<br>Click to add":"No clip.<br>Click to add"}<input type="file" accept="video/*" data-up="${x.id}" style="display:none"></label>`}</div>
@@ -687,7 +695,7 @@ const LIVE={
   _driveall(){}
 };
 const CONN={
-  mode(b){const m=b.dataset.v;if(m===MODE)return;save();MODE=m;try{localStorage.setItem("vs-mode",m)}catch(e){}S=load();toast(m==="live"?"Live mode: buttons now run Claude Code":"Showing example data")},
+  mode(b){const m=b.dataset.v;if(m===MODE)return;saveNow();MODE=m;try{localStorage.setItem("vs-mode",m)}catch(e){}S=load();toast(m==="live"?"Live mode: buttons now run Claude Code":"Showing example data")},
   async cccheck(){CC={checked:false};render();CC={checked:true,...await window.studio.checkClaude()};render()},
   ping(){S.ui.ping={running:true};runJob("ping","Connection test",{},r=>{S.ui.ping=r})},
   openws(){window.studio.openWorkspace()},
@@ -791,7 +799,7 @@ let RECOVER=null;
 async function recoverScan(){S.ui.recBusy=true;render();try{RECOVER=await window.studio.recoverScan()}catch(e){RECOVER=[];toast("Scan failed: "+e.message)}S.ui.recBusy=false;render()}
 function restoreState(st){
   try{localStorage.setItem("vs-live-before-restore",JSON.stringify({v:3,s:S}))}catch(e){}
-  S={...seedLive(),...st};S.ui={...seed().ui};MODE="live";try{localStorage.setItem("vs-mode","live")}catch(e){}save();toast("Data restored");RECOVER=null;render();
+  S={...seedLive(),...st};S.ui={...seed().ui};MODE="live";try{localStorage.setItem("vs-mode","live")}catch(e){}saveNow();toast("Data restored");RECOVER=null;render();
 }
 async function rebuildFromJobs(){
   S.ui.recBusy=true;render();let d;try{d=await window.studio.recoverJobs()}catch(e){toast("Couldn't read job files");S.ui.recBusy=false;render();return}
@@ -1294,7 +1302,10 @@ function render(){
   const authWarn=MODE==="live"&&S.ui.authProblem&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code got signed out</b>, so jobs fail. <button class="btn pri" data-a="cclogin" style="margin-left:8px">Sign in again</button><button class="btn" data-a="goconn" style="margin-left:6px">Stay signed in for a year</button></div>`:"";
   const warn=authWarn+empty+(MODE==="live"&&CC.checked&&!CC.ok&&v!=="connection"?`<div class="panel" style="margin-bottom:16px;border-color:var(--bad)"><b>Claude Code isn't set up on this PC yet</b>, so buttons can't do real work. <button class="btn" data-a="goconn" style="margin-left:8px">Set it up</button></div>`:"");
   const keep={};document.querySelectorAll(".modal input,.modal textarea,.modal select").forEach(el=>{if(el.id&&el.type!=="file")keep[el.id]=el.type==="checkbox"?el.checked:el.value});const openGroups=[...document.querySelectorAll(".modal details")].map(d=>d.open);
+  const oldVids={};document.querySelectorAll("#main video").forEach(el=>{if(el.closest(".modal"))return;const k=el.getAttribute("src")+"|"+el.className;(oldVids[k]=oldVids[k]||[]).push(el)});
   $("#main").innerHTML=warn+V[v]()+(S.ui.genFor&&v==="concepts"?genModal():"")+(S.ui.view?viewModal():"")+(S.ui.ownClip&&v==="concepts"?ownClipModal():"")+(S.ui.varOpen&&v==="concepts"?varModal():"")+(S.ui.relinkOpen&&v==="concepts"?relinkModal():"")+(S.ui.nextFor&&(v==="generations"||v==="finals")?nextModal():"");counts();save();jobsUI();
+  document.querySelectorAll("#main video").forEach(el=>{if(el.closest(".modal"))return;const k=el.getAttribute("src")+"|"+el.className,o=oldVids[k]&&oldVids[k].shift();if(o)el.replaceWith(o)});
+  watchPreviews();
   for(const k in keep){const el=document.getElementById(k);if(!el)continue;if(el.type==="checkbox")el.checked=keep[k];else el.value=keep[k]}document.querySelectorAll(".modal details").forEach((d,i)=>{if(openGroups[i]!=null)d.open=openGroups[i]});
   const f=$("#addform");if(f)f.onsubmit=e=>{e.preventDefault();const n=$("#an").value.trim();if(!n)return;const list=S.ui.libTab==="hooks"?S.hooks:S.reveals;const nx={id:uid(),name:n,desc:$("#ad").value.trim()||"—",fits:$("#af").value.trim()||"Any",bg:G("#232336","#0b0b10")};const cf=$("#aclip").files[0];if(cf){nx.clipName=cf.name;saveClip(cf).then(fp=>{if(/^blob:/.test(fp))CLIPS[nx.id]=fp;else nx.clip=fp;render()})}list.push(nx);S.ui.addOpen=false;toast("Saved to library");render()};
   const pf=$("#prodform");if(pf)pf.onsubmit=async e=>{e.preventDefault();const nm=$("#np-name").value.trim();if(!nm)return;
