@@ -531,6 +531,8 @@ function startJob(e, job) {
     poll = setInterval(async () => {
       if (busyDl || running.get(id) !== child) return;
       let part; try { part = readJsonFile(path.join(ws(), 'results', id + '.partial.json')); } catch (_) { return; }
+      // Submitted on the website: free Chrome for the next clip in line while this one renders.
+      if (part && part.submitted && webBusy.has(id)) { log(`job ${id} submitted, freeing Chrome`); webDone(id); }
       const url = part && (part.video_url || part.video);
       if (!url || !/^https?:\/\//.test(url)) return;
       busyDl = true;

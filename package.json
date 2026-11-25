@@ -1,7 +1,7 @@
 {
   "name": "viral-studio",
   "productName": "Viral Studio",
-  "version": "0.24.4",
+  "version": "0.24.5",
   "description": "Daily viral-video pipeline: concepts, review, scheduling and viral finds.",
   "main": "main.js",
   "private": true,
