@@ -973,7 +973,7 @@ function ownClipModal(){
     ${grp("Basics",`<div class="two">${txt("oc-name","Clip name","e.g. Grandpa finds the truck")}${sel("oc-type","Type",["Hook","Reveal","Full video"],"Hook")}</div>
       <label class="f">What happens? *<textarea id="oc-desc" placeholder="Roughly describe the clip, then press Enter: Claude fills in every section below (Shift+Enter for a new line)"></textarea></label>
       <div class="row" style="justify-content:space-between;margin-top:-4px">${Object.values(JOBS).some(j=>j.type==="ownclipfill")?`<span class="scrolling" style="font-size:13px"><span class="spin"></span>Claude is writing all sections…</span>`:`<span class="note" style="margin:0">Press Enter or the button: Claude fills in everything, you change what you don't like.</span><button type="button" class="btn cy" data-a="ownclipfill">✨ Fill in all sections</button>`}</div>
-      <div class="two">${sel("oc-engine","Engine",["Seedance","MAGI-2"],"Seedance")}${sel("oc-count","How many versions",["1","2","3","4"],"1")}</div>
+      <div class="two">${sel("oc-count","How many versions",["1","2","3","4"],"1")}</div>
 `,true)}
     ${grp("Length & structure",`<div class="two"><label class="f">Total length (seconds)<input type="text" id="oc-len" list="lenlist" inputmode="numeric" placeholder="Claude decides, or type e.g. 6s"></label>${sel("oc-shots","Number of shots",["Claude decides","1 (one take)","2","3","4","5","6+"],"Claude decides")}</div>
       <div class="two">${sel("oc-pace","Pace",["Claude decides","Slow","Normal","Fast cuts"],"Claude decides")}${txt("oc-first","First 1–2 seconds (the hook moment)","e.g. box falls off the shelf")}</div>
@@ -994,7 +994,7 @@ function ownClipModal(){
       <div class="two">${txt("oc-feat","Feature that must be visible","e.g. truck drives around the loop and stops at each glass")}<label class="check" style="margin-top:18px"><input type="checkbox" id="oc-box">Show the box / packaging</label></div>`)}
     ${grp("Mood",`<div class="two">${sel("oc-mood","Mood",["Claude decides","Funny","Shocked","Wholesome","Satisfying","ASMR","Dramatic","Romantic"],"Claude decides")}${txt("oc-avoid","Avoid","e.g. no kids, no alcohol pouring close-up")}</div>`)}
     ${pr?"":`<p style="color:var(--warn)">No product picked yet: you can save the clip now and generate later.</p>`}
-    <div class="row" style="justify-content:flex-end"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn big" data-a="ownclipgo1" ${pr?"":"disabled"} title="Generate it without saving it to your Hooks/Reveals">Generate only once</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div>
+    <div class="row" style="justify-content:space-between"><div class="row" style="gap:8px"><span class="note" style="margin:0">Model</span><div class="seg" role="group">${["Seedance","MAGI-2"].map(m=>`<button aria-pressed="${(S.ui.ocEngine||"Seedance")===m}" data-a="ocengine" data-v="${m}">${m==="Seedance"?"Seedance · 480p":"MAGI-2 · 1080p"}</button>`).join("")}</div><input type="hidden" id="oc-engine" value="${S.ui.ocEngine||"Seedance"}"></div><div class="row"><button class="btn" data-a="ownclipclose">Cancel</button><button class="btn" data-a="ownclipsave">Save to library</button><button class="btn big" data-a="ownclipgo1" ${pr?"":"disabled"} title="Generate it without saving it to your Hooks/Reveals">Generate only once</button><button class="btn pri big" data-a="ownclipgo" ${pr?"":"disabled"}>Save &amp; generate</button></div></div>
   </div></div>`;
 }
 // ---------- Viral hook variations: same script, a few variables changed ----------
@@ -1034,7 +1034,7 @@ function varModal(){
   </div></div>`;
 }
 function ownClipFields(){
-  const out={};document.querySelectorAll('.modal [id^="oc-"]').forEach(el=>{if(el.type==="file"||el.id==="oc-desc"||el.classList.contains("oc-angle"))return;const lab=(el.closest("label")||{}).textContent||"";
+  const out={};document.querySelectorAll('.modal [id^="oc-"]').forEach(el=>{if(el.type==="file"||el.type==="hidden"||["oc-desc","oc-engine","oc-count","oc-type"].includes(el.id)||el.classList.contains("oc-angle"))return;const lab=(el.closest("label")||{}).textContent||"";
     out[el.id]={label:lab.replace(/\s+/g," ").trim().slice(0,60),type:el.tagName==="SELECT"?"choice":el.type==="checkbox"?"yes/no":"text",options:el.tagName==="SELECT"?[...el.options].map(o=>o.value):undefined}});
   out.angles={label:"Angles to include (pick any)",type:"list",options:OC_ANGLES};return out}
 function ownClipFill(){
@@ -1046,7 +1046,7 @@ function ownClipFill(){
     if(!r.ok||!r.values)return;let n=0;
     for(const [k,v] of Object.entries(r.values)){
       if(k==="angles"){const want=new Set([].concat(v||[]));document.querySelectorAll(".oc-angle").forEach(c=>{c.checked=want.has(c.value)});continue}
-      const el=document.getElementById(k);if(!el||k==="oc-desc"||el.type==="file")continue;
+      const el=document.getElementById(k);if(!el||["oc-desc","oc-engine","oc-count","oc-type"].includes(k)||el.type==="file"||el.type==="hidden")continue;
       if(el.type==="checkbox")el.checked=!!v;
       else if(el.tagName==="SELECT"){if([...el.options].some(o=>o.value===v))el.value=v;else continue}
       else el.value=String(v??"");n++}
@@ -1435,6 +1435,7 @@ $("#main").addEventListener("click",e=>{
     case"vargen":{const x=varTarget(),pr=P(S.concept.pid);if(!x||!pr)return;const list=(x.vars||{})[pr.id]||[];let ok=false;
       for(const v of list.filter(v=>v.sel)){const c=v.changes||{};ok=genOne(x,S.ui.varKind||"hook",S.ui.varEngine||"Seedance",{people:c.people||"",background:c.background||"",script:c.script||x.script||"",mood:c.mood||"",other:[c.other||"","Variation of the user's OWN viral hook: keep the script, timing, shots, camera and energy as close to the original as possible; change only what is listed here."].filter(Boolean).join("\n"),length:c.length||"",closeness:"very close",variation:v.title||""})||ok;v.sel=false}
       if(ok){S.ui.varOpen=false;location.hash="generations"}break}
+    case"ocengine":S.ui.ocEngine=b.dataset.v;{const h=$("#oc-engine");if(h)h.value=b.dataset.v}break;
     case"ownclipfill":ownClipFill();return;
     case"ownclipclose":S.ui.ownClip=false;break;
     case"ownclipsave":readOwnClip().then(r=>{if(!r)return;S.ui.ownClip=false;toast("Saved to "+(r.kind==="hook"?"Hooks":"Reveals"));render()});return;
