@@ -32,7 +32,8 @@ Order of authority: the product's own `playbook` first, then `PLAYBOOK.md`, then
 ## Job types
 
 ### `scroll`: find viral products on Instagram
-Input: `criteria` = `{maxPosts, minFollowers, minX, demand, lastPostDays, minSharePct}`, `count` (how many products to find, default 5), `maxMinutes` (time limit, default 20).
+Input: `criteria` = `{maxPosts, minFollowers, minX, demand, lastPostDays, minSharePct, focus}`, `count` (how many products to find, default 5), `maxMinutes` (time limit, default 20).
+**`criteria.focus`** (may be empty) is the user's own description of what products they want, in their words: the kinds of products, niches, price range, audiences, and things to avoid. When it's set, only keep products that fit it (skip everything else, however viral), and steer the search toward it: search Reels for matching keywords and hashtags, and open related reels, instead of only scrolling the feed. Everything else (the account rules, views, shares, demand) still applies. If nothing fits within the time, return what you found and say so.
 Note the start time (`date`) and check it as you go. When `maxMinutes` is reached, stop and write the result with whatever you found so far, even if it's fewer than `count`. The app stops you a few minutes after the limit, and anything not written by then is lost.
 Use Claude in Chrome (the user's Chrome, logged into their burner Instagram). Open Reels and scroll.
 For each reel, check the account: its newest post is at most `lastPostDays` days old (skip inactive accounts), at most `maxPosts` posts, at least `minFollowers` followers, and the reel's views at least `minX` times the account's usual views (median of its other reels).

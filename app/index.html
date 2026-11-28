@@ -364,6 +364,7 @@ products(){
     <label class="f">Shares vs likes at least (%)<input type="text" inputmode="numeric" id="cr-share" value="${c.minSharePct??5}%"></label>
     <label class="f">Find this many products<input type="text" inputmode="numeric" id="cr-count" value="${c.count||5}"></label>
     <label class="f">Scroll for at most (minutes)<input type="text" inputmode="numeric" id="cr-min" value="${c.minutes||20}"></label>
+    <label class="f" style="grid-column:1/-1">What products to look for (optional, in your own words)<textarea id="cr-focus" style="min-height:64px" placeholder="e.g. Christmas gifts for dog owners, kids' glow-in-the-dark stuff, cozy home gadgets under $30. Not: phone cases, makeup, clothes for adults. Leave empty to find anything that goes viral.">${esc(c.focus||"")}</textarea></label>
     ${S.ui.scrolling?`<button class="btn" type="button" data-a="stopscroll">Stop</button>`:`<button class="btn pri big" type="button" data-a="scroll" style="align-self:end">Start scrolling</button>`}
   </form>
   ${S.ui.scrolling?`<div class="panel" style="margin-bottom:18px"><div class="scrolling"><span class="spin"></span>Scrolling Reels in your Chrome…</div><div class="note" style="margin-top:6px">Looking for ${c.count||5} products for up to ${c.minutes||20} minutes. Shares at least ${c.minSharePct??5}% of likes. Checking each account: last post within ${c.lastPostDays??2} days, ${c.maxPosts} posts or fewer, ${c.minFollowers}+ followers, ${c.minX}×+ its usual views. Then reading the comments to see if people want to buy it.</div></div>`:""}
@@ -1547,6 +1548,7 @@ $("#main").addEventListener("change",async e=>{
   if(t.id==="cr-share"&&num(t.value)>=0){S.criteria.minSharePct=num(t.value);t.value=S.criteria.minSharePct+"%"}
   if(t.id==="cr-count"&&num(t.value)>0)S.criteria.count=Math.min(num(t.value),50);
   if(t.id==="cr-min"&&num(t.value)>0)S.criteria.minutes=Math.min(num(t.value),240);
+  if(t.id==="cr-focus"){S.criteria.focus=t.value.trim();save()}
   if(t.id&&t.id.startsWith("cr-"))save();
 });
 $("#main").addEventListener("keydown",e=>{if(e.target&&e.target.id==="oc-desc"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();ownClipFill();return}if(e.key==="Escape"&&S.ui.varOpen){S.ui.varOpen=false;render();return}if(e.key==="Escape"&&(S.ui.genFor||S.ui.view||S.ui.ownClip||S.ui.nextFor)){S.ui.genFor=null;S.ui.view=null;S.ui.ownClip=false;S.ui.nextFor=null;render();return}if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("pcard")){e.preventDefault();e.target.click();return}if(e.target.id==="rn-input"&&e.key==="Enter"){e.preventDefault();document.querySelector('[data-a="rnsave"]').click()}});
